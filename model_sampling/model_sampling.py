@@ -13,14 +13,29 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 import time
 import utils
 import client
+import argparse
 from tqdm import tqdm
 from datasets import load_dataset, Dataset
 
-task_num = 128
-temperature = 0.7
-batch_number, batch_size = 8, 4
-model_path = "microsoft/Phi-3.5-mini-instruct"
-model_name = "Phi_3_5_mini_instruct_vanilla"
+parser = argparse.ArgumentParser(description='Model Evaluation Script')
+parser.add_argument('--task_num', type=int, default=128, help='Number of tasks')
+parser.add_argument('--temperature', type=float, default=0.7, help='Temperature for model generation')
+parser.add_argument('--batch_number', type=int, default=8, help='Batch number')
+parser.add_argument('--batch_size', type=int, default=4, help='Batch size')
+parser.add_argument('--model_path', type=str, default="microsoft/Phi-3.5-mini-instruct", help='Path to the model')
+parser.add_argument('--model_name', type=str, default="Phi_3_5_mini_instruct_vanilla", help='Name of the model')
+parser.add_argument('--difficulty', type=str, default="competition", help='Difficulty of the task')
+parser.add_argument('--split', type=str, default='train', help='Dataset split')
+args = parser.parse_args()
+
+task_num = args.task_num
+temperature = args.temperature
+batch_number = args.batch_number
+batch_size = args.batch_size
+model_path = args.model_path
+model_name = args.model_name
+difficulty = args.difficulty
+split = args.split
 
 task_ds = load_dataset("codeparrot/apps", "competition", split='test')
 model = client.HFClient(model_path)
