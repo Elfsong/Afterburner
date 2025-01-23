@@ -1,6 +1,9 @@
 import torch
 import outlines
+import outlines.caching as cache
 from vllm.sampling_params import SamplingParams
+
+cache.disable_cache()
 
 # Clients
 class Client:

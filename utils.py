@@ -17,20 +17,15 @@ class CodeGeneration(BaseModel):
     # draft: str
     code: str
 
-def extract_json_from_response(response):
+def extract_python_code_from_response(response):
     # Regular expression to match JSON within the response
-    json_pattern = r"```json\n({.*?})\n```"
-    match = re.search(json_pattern, response, re.DOTALL)
+    match = re.search(r"```python\n(.*?)\n```", response, re.DOTALL)
+    
     if match:
-        json_str = match.group(1)
-        try:
-            extracted_json = json.loads(json_str)
-            return extracted_json
-        except json.JSONDecodeError as e:
-            print(f"Error decoding JSON: {e}")
-            return None
+        code_str = match.group(1)
+        return code_str
     else:
-        print("No JSON object found in the response.")
+        print("No code found in the response.")
         return None
 
 def solution_filter(instance):
@@ -111,14 +106,16 @@ Please provide your response in **JSON format** with the following keys:
     """
     return prompt
 
-def pure_solution_generation_prompt_construct(problem_content: str, instruction: str) -> str:
+def pure_solution_generation_prompt_construct(problem_content: str, instruction: str, lang: str) -> str:
     prompt = f"""
-Given the following problem description, generater a correct and concise solution.
+Given the following problem description, generater a correct and concise {lang} solution.
 
 Take the input from stdin (input()) and output to stdout (print()).
 
-Please respond in a JSON string with the following keys:
-- "code"  : The code solution.
+Please respond a {lang} solution in the following format:
+```python
+{lang} code here
+```
 
 # Instruction:
 {instruction}
