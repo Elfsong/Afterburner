@@ -6,8 +6,32 @@
 import sys
 sys.path.append('/home/nus_cisco_wp1/Projects/llm-sandbox')
 
+import re
+import json
 import threading
 from typing import List
+from pydantic import BaseModel, ConfigDict
+
+class CodeGeneration(BaseModel):
+    model_config = ConfigDict(extra='forbid')  # required for openai
+    # draft: str
+    code: str
+
+def extract_json_from_response(response):
+    # Regular expression to match JSON within the response
+    json_pattern = r"```json\n({.*?})\n```"
+    match = re.search(json_pattern, response, re.DOTALL)
+    if match:
+        json_str = match.group(1)
+        try:
+            extracted_json = json.loads(json_str)
+            return extracted_json
+        except json.JSONDecodeError as e:
+            print(f"Error decoding JSON: {e}")
+            return None
+    else:
+        print("No JSON object found in the response.")
+        return None
 
 def solution_filter(instance):
     filtered_solutions = list()
@@ -68,6 +92,39 @@ Given the following problem details and the original solution, outline your appr
 Please provide your response in **JSON format** with the following keys:
 - "draft" : A concise explanation of your thought process or approach.
 - "code"  : The optimized code solution.
+    """
+    return prompt
+
+def solution_generation_prompt_construct(problem_content: str, instruction: str) -> str:
+    prompt = f"""
+Given the following problem description, outline your approach and then generater a solution.
+
+# Instruction:
+{instruction}
+
+# Problem Description:
+{problem_content}
+
+Please provide your response in **JSON format** with the following keys:
+- "draft" : A concise explanation of your thought process or approach.
+- "code"  : The code solution.
+    """
+    return prompt
+
+def pure_solution_generation_prompt_construct(problem_content: str, instruction: str) -> str:
+    prompt = f"""
+Given the following problem description, generater a correct and concise solution.
+
+Take the input from stdin (input()) and output to stdout (print()).
+
+Please respond in a JSON string with the following keys:
+- "code"  : The code solution.
+
+# Instruction:
+{instruction}
+
+# Problem Description:
+{problem_content}
     """
     return prompt
 

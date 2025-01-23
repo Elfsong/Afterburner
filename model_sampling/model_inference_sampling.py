@@ -4,39 +4,53 @@
 # Date: 2025-01-21
 
 import sys
-sys.path.append('/home/nus_cisco_wp1/Projects/llm-sandbox')
+sys.path.append('/home/mingzhe/Projects/Afterburner')
+
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "2,3"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 import json
 import utils
+import client
 from tqdm import tqdm
-from random import sample
-from llm_sandbox import SandboxSession
 from datasets import load_dataset, Dataset
 
-task_ds = load_dataset("Elfsong/Venus_t", "python3", split="eval")
+task_num = 4
+temperature = 0.7
+batch_number, batch_size = 8, 4
 
-for instance in tqdm(list(task_ds)):    
+task_ds = load_dataset("codeparrot/apps", "competition", split='test')
+model = client.HFClient("microsoft/Phi-3.5-mini-instruct")
+
+for instance in tqdm(list(task_ds)[:task_num]):    
     try:
         # Extract instance details
-        content = instance['content']
-        libraries = instance['libraries']
-        question_id = instance['question_id']
-        entry_point = instance['entry_point']
-        import_code = instance['import_code']
-        solution_prompt = instance['code_prompt']
-        test_cases = instance['test_case']
+        problem_content = instance['question']
+        prompt = utils.pure_solution_generation_prompt_construct(problem_content, "")
         
-        if not test_cases: continue
-        test_cases = instance['test_case'].split("\n")
-        test_cases = [json.loads(test_case) for test_case in test_cases if test_case]
-        test_case_generator = instance['test_case_generator']
-        solutions = instance['rt_list'] + instance['mm_list']    
-        solutions = [solution for solution in solutions if ('user.out' not in solution['code']) and ('Solution' in solution['code'])]
-
-        # Inference Sampling
+        # Temperature Sampling
+        solution_responses = list()
         
-        # Evaluation
-
+        for b in tqdm(range(batch_number)):    
+            try:        
+                # responses = model.json_generate(utils.CodeGeneration, prompt, k=batch_size, temperature=temperature)
+                responses = model.text_generate(prompt, k=batch_size, temperature=temperature)
+                
+                for response in responses:
+                    # code = utils.extract_json_from_response(response)
+                    # if code:
+                    solution_responses.append({
+                        'problem_id': instance['problem_id'],
+                        'difficulty': instance['difficulty'],
+                        "code": response,
+                    })
+           
+            except Exception as e:
+                print(f"Error: {e}")
+            
+        eval_ds = Dataset.from_list(responses)
+        eval_ds.push_to_hub("Elfsong/apps_generation", instance['problem_id'], split=f'temperature_{temperature}')
             
     except Exception as e:
         print(e)
