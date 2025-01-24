@@ -34,7 +34,7 @@ python model_sampling.py \
     --difficulty "competition" \
     --split "train"
 
-echo "temperature 0.7 - competition - test"
+echo "temperature 0.7 - introductory - test"
 python model_sampling.py \
     --task_num 8 \
     --temperature 0.7 \
@@ -45,7 +45,7 @@ python model_sampling.py \
     --difficulty "introductory" \
     --split "test"
 
-echo "temperature 0.5 - competition - test"
+echo "temperature 0.5 - introductory - test"
 python model_sampling.py \
     --task_num 8 \
     --temperature 0.5 \
@@ -56,7 +56,7 @@ python model_sampling.py \
     --difficulty "introductory" \
     --split "test"
 
-echo "temperature 0.3 - competition - test"
+echo "temperature 0.3 - introductory - test"
 python model_sampling.py \
     --task_num 8 \
     --temperature 0.3 \
@@ -67,7 +67,7 @@ python model_sampling.py \
     --difficulty "introductory" \
     --split "test"
 
-echo "temperature 0.7 - competition - test"
+echo "temperature 0.7 - interview - test"
 python model_sampling.py \
     --task_num 8 \
     --temperature 0.7 \
@@ -78,7 +78,7 @@ python model_sampling.py \
     --difficulty "interview" \
     --split "test"
 
-echo "temperature 0.5 - competition - test"
+echo "temperature 0.5 - interview - test"
 python model_sampling.py \
     --task_num 8 \
     --temperature 0.5 \
@@ -89,7 +89,7 @@ python model_sampling.py \
     --difficulty "interview" \
     --split "test"
 
-echo "temperature 0.3 - competition - test"
+echo "temperature 0.3 - interview - test"
 python model_sampling.py \
     --task_num 8 \
     --temperature 0.3 \

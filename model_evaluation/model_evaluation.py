@@ -33,11 +33,14 @@ sys.stdin = sys.__stdin__
     """
     return code_template.format(code=code, input_data=input_data)
 
-task_ds = load_dataset("codeparrot/apps", "competition", split='test')
 solution_ds = load_dataset("Elfsong/apps_generation", f'{model_name}_temperature_{temperature}')
 
 tasks = dict()
-for instance in task_ds:
+for instance in load_dataset("codeparrot/apps", "competition", split='train'):
+    tasks[instance['problem_id']] = instance
+for instance in load_dataset("codeparrot/apps", "interview", split='test'):
+    tasks[instance['problem_id']] = instance
+for instance in load_dataset("codeparrot/apps", "introductory", split='test'):
     tasks[instance['problem_id']] = instance
 
 for problem_id in tqdm(solution_ds):
