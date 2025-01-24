@@ -28,20 +28,11 @@ parser.add_argument('--difficulty', type=str, default="competition", help='Diffi
 parser.add_argument('--split', type=str, default='train', help='Dataset split')
 args = parser.parse_args()
 
-task_num = args.task_num
-temperature = args.temperature
-batch_number = args.batch_number
-batch_size = args.batch_size
-model_path = args.model_path
-model_name = args.model_name
-difficulty = args.difficulty
-split = args.split
+task_ds = load_dataset("codeparrot/apps", args.difficulty, split=args.split)
+model = client.HFClient(args.model_path)
 
-task_ds = load_dataset("codeparrot/apps", "competition", split='test')
-model = client.HFClient(model_path)
-
-for index, instance in enumerate(list(task_ds)[:task_num]):   
-    print(f"Task {index+1}/{task_num}")
+for index, instance in enumerate(list(task_ds)[:args.task_num]):   
+    print(f"🚧 Task {index+1}/{args.task_num}")
     start_time = time.time()
     try:
         # Extract instance details
@@ -51,10 +42,9 @@ for index, instance in enumerate(list(task_ds)[:task_num]):
         # Temperature Sampling
         solution_responses = list()
         
-        for b in tqdm(range(batch_number)):    
+        for b in tqdm(range(args.batch_number), desc=f"Batch Inference"):  
             try:        
-                responses = model.text_generate(prompt, k=batch_size, temperature=temperature)
-                
+                responses = model.text_generate(prompt, k=args.batch_size, temperature=args.temperature)
                 for response in responses:
                     code = utils.extract_python_code_from_response(response)
                     if code:
@@ -63,17 +53,18 @@ for index, instance in enumerate(list(task_ds)[:task_num]):
                             'difficulty': instance['difficulty'],
                             "code": code,
                         })
-           
             except Exception as e:
                 print(f"Error: {e}")
-            
+        
+        print(f"📦 Pushing to Hub...")
         eval_ds = Dataset.from_list(solution_responses)
-        eval_ds.push_to_hub("Elfsong/apps_generation", f'{model_name}_temperature_{temperature}', split=str(instance['problem_id']))
+        eval_ds.push_to_hub("Elfsong/apps_generation", f'{args.model_name}_temperature_{args.temperature}', split=str(instance['problem_id']))
     except Exception as e:
         print(e)
         
     end_time = time.time()
-    print(f"Time: {end_time - start_time:.2f} s")
+    print(f"⌛️ Time: {end_time - start_time:.2f} s")
+    print("=============================================")
     
         
 
