@@ -11,9 +11,7 @@ import utils
 from tqdm import tqdm
 from random import sample
 from llm_sandbox import SandboxSession
-from datasets import load_dataset, Dataset, disable_caching
-
-disable_caching()
+from datasets import load_dataset, Dataset
 
 task_ds = load_dataset("Elfsong/Venus_t", "python3", split="train")
 

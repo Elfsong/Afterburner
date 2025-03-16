@@ -1,83 +1,63 @@
 
+from jitter import Jitter
 
+jitter = Jitter(number_of_cases=5, timeout=30)
 
-from unittest.mock import patch
+# code = """
+# class Solution:
+#     def rotate(self, matrix: List[List[int]]) -> None:
+#         n=len(matrix)
+#         for i in range(n):
+#             for j in range(i):
+#                 matrix[i][j],matrix[j][i]=matrix[j][i],matrix[i][j]
+#         for i in range(n):
+#             matrix[i].reverse()
+# """
 
-with patch('builtins.input', side_effect=['5 5 20 25', '1 2 25', '2 3 25', '3 4 20', '4 5 20', '5 1 20']):
-    import heapq
-    n,m,a,b=map(int,input().split())
-    graph={i:[] for i in range(n)}
-    for i in range(m):
-        u,v,w=map(int,input().split())
-        graph[u-1].append((v-1,w))
-        graph[v-1].append((u-1,w))
-    components=[-1]*n
-    comp=-1
-    for i in range(n):
-        if components[i]==-1:
-            comp+=1
-            components[i]=comp
-            prev=[]
-            layer=[i]
-            while layer!=[]:
-                newlayer=[]
-                for guy in layer:
-                    for guy1 in graph[guy]:
-                        if guy1[1]==a and components[guy1[0]]==-1:
-                            newlayer.append(guy1[0])
-                            components[guy1[0]]=comp
-                prev=layer[:]
-                layer=newlayer[:]
-    useless=[]
-    for guy in graph:
-        for neigh in graph[guy]:
-            if components[guy]==components[neigh[0]] and neigh[1]==b:
-                useless.append((guy,neigh))
-    for guy in useless:
-        graph[guy[0]].remove(guy[1])
-    counts=[0]*(comp+1)
-    for i in range(n):
-        counts[components[i]]+=1
-    bad=[]
-    for i in range(comp+1):
-        if counts[i]<=3:
-            bad.append(i)
-            for j in range(n):
-                if components[j]==i:
-                    components[j]=-1
-    for guy in bad[::-1]:
-        for i in range(n):
-            if components[i]>guy:
-                components[i]-=1
-    comp-=len(bad)
-    comp+=1
-    dists=[[float("inf") for i in range(2**comp)] for j in range(n)]
-    dists[0][0]=0
-    pq=[]
-    heapq.heappush(pq,[0,0,0])
-    remaining=n
-    visited=[0]*n
-    while len(pq)>0 and remaining>0:
-        dist,vert,mask=heapq.heappop(pq)
-        if visited[vert]==0:
-            visited[vert]=1
-            remaining-=1
-        for neigh in graph[vert]:
-            if neigh[1]==b:
-                if components[vert]==components[neigh[0]] and components[vert]!=-1:
-                    continue
-                if components[neigh[0]]!=-1:
-                    if mask & (2**components[neigh[0]])>0:
-                        continue
-                if components[vert]!=-1:
-                    maskn=mask+2**(components[vert])
-                else:
-                    maskn=mask
-            else:
-                maskn=mask
-            if dist+neigh[1]<dists[neigh[0]][maskn]:
-                dists[neigh[0]][maskn]=dist+neigh[1]
-                heapq.heappush(pq,[dist+neigh[1],neigh[0],maskn])
-    optimal=[str(min(dists[i])) for i in range(n)]
-    print(" ".join(optimal))
-    
+code = """
+class Solution:
+    def getCoprimes(self, nums: List[int], edges: List[List[int]]) -> List[int]:
+        ans = [-1] * len(nums)
+        path = [[] for _ in range(51)]
+        graph = defaultdict(list)
+        seen = set()
+        for u, v in edges:
+            graph[u].append(v)
+            graph[v].append(u)
+
+        def dfs(node, depth):
+            if node in seen: return
+            seen.add(node)
+            largestDepth = -1
+            for x in range(1, 51):
+                if gcd(nums[node], x) == 1: # co-prime
+                    if len(path[x]) > 0:
+                        topNode, topDepth = path[x][-1]
+                        if largestDepth < topDepth:  # Pick node which has largestDepth and co-prime with current node as our ancestor node
+                            largestDepth = topDepth
+                            ans[node] = topNode
+            path[nums[node]].append((node, depth))
+            for nei in graph[node]:
+                dfs(nei, depth + 1)
+            path[nums[node]].pop()
+
+        dfs(0, 0)
+        return ans
+"""
+
+test_cases, test_case_generator_code, test_case_construction = jitter.generate(code)
+
+print("======== Test Cases ========")
+print(test_cases)
+
+print("======== Test Case Generator Code ========")
+print(test_case_generator_code)
+
+print("======== Libraries ========")
+print(test_case_construction['libraries'])
+
+print("======== Import Statements ========")
+print(test_case_construction['import_statements'])
+
+print("======== Executable Code ========")
+print(test_case_construction['executable_code']) 

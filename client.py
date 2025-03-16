@@ -1,6 +1,9 @@
 import torch
 import outlines
+import outlines.caching as cache
 from vllm.sampling_params import SamplingParams
+
+cache.disable_cache()
 
 # Clients
 class Client:
@@ -18,7 +21,7 @@ class Client:
     def text_generate(self, prompt, k=1, temperature=0.8):
         params = SamplingParams(max_tokens=8192)
         text_generator = outlines.generate.text(self.model, sampler=outlines.samplers.multinomial(k, temperature=temperature))
-        return text_generator(prompt, sampling_params=params)
+        return text_generator(prompt, sampling_params=params, use_tqdm=False)
     
 class OpenAIClient(Client):
     def __init__(self, model_name):
@@ -38,4 +41,4 @@ class HFClient(Client):
     def json_generate(self, json_schema, prompt, k=1, temperature=0.8):
         params = SamplingParams(max_tokens=16384)
         json_generator = outlines.generate.json(self.model, json_schema, sampler=outlines.samplers.multinomial(k, temperature=temperature))
-        return json_generator(prompt, sampling_params=params)
+        return json_generator(prompt, sampling_params=params, use_tqdm=False)
