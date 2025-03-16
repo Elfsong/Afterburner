@@ -1,6 +1,6 @@
 # coding: utf-8
 
-# Just-In-Time TestER (JITTER)
+# Just-In-Time Tester (JITT)
 # Author: Du Mingzhe (mingzhe@nus.edu.sg)
 # Date: 2025-03-15
 
@@ -111,19 +111,19 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('jitter.log'),
+        logging.FileHandler('jitt.log'),
         logging.StreamHandler()
     ]
 )
 
-class Jitter:
+class JITT:
     def __init__(self, number_of_cases=1, timeout=60):
         self.remote_sandbox = 'https://monolith.cool'
         self.number_of_cases = number_of_cases
         self.timeout = timeout
         self.openai_api_key = os.getenv('OPENAI_API_KEY')
         self.client = OpenAI(api_key=self.openai_api_key)
-        self.logger = logging.getLogger('jitter_logger')
+        self.logger = logging.getLogger('jitt_logger')
         
         self.python_test_case_generator_template = PYTHON_TEST_CASE_GENERATOR_TEMPLATE
         self.python_test_case_construction_template = PYTHON_TEST_CASE_CONSTRUCTION_TEMPLATE

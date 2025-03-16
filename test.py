@@ -1,5 +1,5 @@
 
-from jitter import Jitter
+from jitt import JITT
 
 code = """
 class Solution:
@@ -11,8 +11,8 @@ class Solution:
         for i in range(n):
             matrix[i].reverse()
 """
-jitter = Jitter(number_of_cases=5, timeout=30)
-test_cases, test_case_generator_code, test_case_construction = jitter.generate(code)
+jitt = JITT(number_of_cases=5, timeout=30)
+test_cases, test_case_generator_code, test_case_construction = jitt.generate(code)
 
 print("======== Test Cases ========")
 print(test_cases)
