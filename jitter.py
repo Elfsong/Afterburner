@@ -9,21 +9,14 @@ import os
 import json
 import time
 import random
+import logging
 import requests
 from tqdm import tqdm
 from typing import List
 from openai import OpenAI
-from datasets import load_dataset
 
 
-class Jitter:
-    def __init__(self, number_of_cases=1, timeout=60):
-        self.remote_sandbox = 'https://monolith.cool'
-        self.number_of_cases = number_of_cases
-        self.timeout = timeout
-        self.openai_api_key = os.getenv('OPENAI_API_KEY')
-        
-        self.python_test_case_generator_template = """
+PYTHON_TEST_CASE_GENERATOR_TEMPLATE = """
 Please develop a structured Python Class TestCaseGenerator for a given Python Solution, containing the following components:
 
 Python Solution:
@@ -61,9 +54,9 @@ Additional Requirements:
 - Maintain pure logic functions (avoid side effects).
 - Call the Python solution to generate expected output. Don't modify the solution.
 - Assuming the Python Solution class is already defined in the same file, respond the executable TestCaseGenerator ONLY.
-        """
-        
-        self.test_case_generation_raw_code = """
+"""
+
+PYTHON_TEST_CASE_CONSTRUCTION_TEMPLATE = """
 Analyze the provided code, identify any missing required libraries, and generate a response containing:
 - A list of Python libraries that need to be installed (excluding standard library modules)
 - A refined version of the code with all necessary import statements added at the beginning
@@ -78,14 +71,17 @@ Ensure:
 - Only include libraries actually used in the code.
 - Maintain the original code's functionality.
 - Use double quotes for JSON formatting.
-- Use # <solution_code> and # </solution_code> tags to encapsulate the python_solution_code.
+- Keep # <solution_code> and # </solution_code> tags to encapsulate the python_solution_code.
 
 # <solution_code>
 {python_solution_code}
 # </solution_code>
 
+# <test_case_generator_code>
 {test_case_generator_code}
+# </test_case_generator_code>
 
+# Test Case Construction
 test_case_generator = TestCaseGenerator()
 
 cases = list()
@@ -111,44 +107,57 @@ print(json.dumps(cases))
 print("</case_data>")
 """
 
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('jitter.log'),
+        logging.StreamHandler()
+    ]
+)
+
+class Jitter:
+    def __init__(self, number_of_cases=1, timeout=60):
+        self.remote_sandbox = 'https://monolith.cool'
+        self.number_of_cases = number_of_cases
+        self.timeout = timeout
+        self.openai_api_key = os.getenv('OPENAI_API_KEY')
         self.client = OpenAI(api_key=self.openai_api_key)
+        self.logger = logging.getLogger('jitter_logger')
+        
+        self.python_test_case_generator_template = PYTHON_TEST_CASE_GENERATOR_TEMPLATE
+        self.python_test_case_construction_template = PYTHON_TEST_CASE_CONSTRUCTION_TEMPLATE
+    
+    def openai_call(self, prompt: str) -> str:
+        completion = self.client.chat.completions.create(
+            model="o3-mini",
+            messages=[
+                {"role": "system",   "content": "You're a world-class programmer."},
+                {"role": "user",     "content": prompt},
+            ]
+        )
+        return completion.choices[0].message.content
         
     def get_test_case_generator(self, python_solution: str) -> str:
-        prompt = self.python_test_case_generator_template.format(python_solution=python_solution)
-        completion = self.client.chat.completions.create(
-            model="o3-mini",
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You're a world-class programmer."
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                },
-            ]
+        prompt = self.python_test_case_generator_template.format(
+            python_solution=python_solution
         )
-
-        return completion.choices[0].message.content
+        response = self.openai_call(prompt)
+        return response
+        
     
     def get_test_case_construction(self, python_solution_code, test_case_generator_code) -> str:
-        prompt = self.test_case_generation_raw_code.format(python_solution_code=python_solution_code, test_case_generator_code=test_case_generator_code, number_of_cases=self.number_of_cases)
-        completion = self.client.chat.completions.create(
-            model="o3-mini",
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You're a world-class programmer."
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                },
-            ]
+        prompt = self.python_test_case_construction_template.format(
+            python_solution_code=python_solution_code, 
+            test_case_generator_code=test_case_generator_code, 
+            number_of_cases=self.number_of_cases
         )
+        
+        response = self.openai_call(prompt)
         try:
-            response = json.loads(completion.choices[0].message.content)
+            response = json.loads(response)
         except Exception as e:
+            self.logger.error(f'Test Case Construction Code Generation Error: {e}')
             response = None
         return response
 
@@ -178,21 +187,21 @@ print("</case_data>")
             test_cases_json = json.loads(test_cases_json_str)
             return test_cases_json
         except Exception as e:
+            self.logger.error(f'Test Case Construction Error: {e}')
             return []
     
     def generate(self, solution_code: str) -> List:
         try:
-            print(f'[+] Getting Test Case Generator')
+            self.logger.info(f'Getting Test Case Generator')
             test_case_generator_code = self.get_test_case_generator(solution_code)
             
-            print(f'[+] Getting Test Case Construction')
+            self.logger.info(f'Getting Test Case Construction')
             test_case_construction = self.get_test_case_construction(solution_code, test_case_generator_code)
             
-            print(f'[+] Parsing Test Case Construction Code ')
+            self.logger.info(f'Parsing Test Case Construction Code')
             if not test_case_construction: return []
             
-            # Submit code to Monolith
-            print(f'[+] Submitting code to Monolith')
+            self.logger.info(f'Submitting code to Monolith')
             task_id = self.post_code_submit(
                 test_case_construction['libraries'], 
                 test_case_construction['executable_code'], 
@@ -200,59 +209,19 @@ print("</case_data>")
                 profiling=False
             )
             
-            # Retrieve test cases
-            print(f'[+] Retrieving Test Cases')
+            self.logger.info(f'Retrieving Test Cases')
             response = {'status': 'pending'}
-            for i in tqdm(range(self.timeout), desc='Waiting for test case generation...'):
+            for _ in tqdm(range(self.timeout), desc='Waiting for test case generation...'):
                 time.sleep(1)
                 response = self.get_code_result(task_id)
                 if response['status'] in ['done', 'error', 'timeout']:
                     break
             
-            print(f'[+] Parsing Test Cases')
+            self.logger.info(f'Parsing Test Cases')
             if response['status'] == 'done':
                 test_cases = self.test_case_construction(response['output_dict']['stdout'])
                 return test_cases, test_case_generator_code, test_case_construction
             return []
         except Exception as e:
-            print(f'Error: {e}')
+            self.logger.error(f'Generation Error: {e}')
             return []
-        
-if __name__ == "__main__":
-    # Load Venus Datasets
-    ds = load_dataset("Elfsong/Venus", "python3")
-    
-    # Initialize JITTER
-    jitter = Jitter(number_of_cases=100, timeout=60)
-
-    t, c = 0, 0
-    for instance in tqdm(ds['train']):
-        try:
-            solutions = instance['rt_list'] + instance['mm_list']
-            for solution in random.sample(solutions, min(jitter.number_of_samples, len(solutions))):
-                solution_code = solution['code']
-                
-                generator_code = jitter.python_test_case_generator(solution_code)
-                test_case_construction = jitter.python_test_case_construction(solution_code, generator_code)
-                if not test_case_construction: continue
-                
-                # Submit code to Monolith
-                task_id = jitter.post_code_submit(test_case_construction['libraries'], test_case_construction['executable_code'], timeout=jitter.timeout, profiling=False)
-                
-                # Retrieve test cases
-                response = {'status': 'pending'}
-                for i in tqdm(range(jitter.timeout), desc='Waiting for test case generation...'):
-                    time.sleep(1)
-                    response = jitter.get_code_result(task_id)
-                    if response['status'] in ['done', 'error', 'timeout']:
-                        break
-                    
-                if response['status'] == 'done':
-                    test_cases = jitter.test_case_construction(response['output_dict']['stdout'])
-                    print(test_cases)
-                    c += 1
-        except Exception as e:
-            pass
-        finally:
-            t += 1
-            print(f"Total: {t}, Completed: {c}")
