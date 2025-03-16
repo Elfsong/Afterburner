@@ -180,7 +180,7 @@ class JITT:
         response = requests.get(f'https://monolith.cool/results/{task_id}')
         return response.json()
     
-    def test_case_parse(self, response: str) -> str:
+    def monolith_response_parse(self, response: str) -> str:
         try:
             test_cases_json_str = "[]"
             match = re.search(r"<case_data>(.*?)</case_data>", response, re.DOTALL)
@@ -232,7 +232,7 @@ class JITT:
             self.logger.debug(f'[+] Parsing Test Cases')
             
             if response['status'] == 'done' and response['output_dict']['stdout']:
-                test_cases = self.test_case_parse(response['output_dict']['stdout'])
+                test_cases = self.monolith_response_parse(response['output_dict']['stdout'])
                 if test_cases:
                     result['test_cases'] = json.dumps(test_cases)
                     result['test_case_generator_code'] = test_case_generator_code
