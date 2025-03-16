@@ -8,9 +8,9 @@ import re
 import os
 import json
 import time
-import random
 import logging
 import requests
+import multiprocessing
 from tqdm import tqdm
 from typing import List
 from openai import OpenAI
@@ -108,7 +108,7 @@ print("</case_data>")
 """
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.ERROR,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
         logging.FileHandler('jitt.log'),
@@ -118,15 +118,18 @@ logging.basicConfig(
 
 class JITT:
     def __init__(self, number_of_cases=1, timeout=60):
+        self.logger = logging.getLogger('jitt_logger')
+        self.logger.setLevel(logging.ERROR)
+        self.logger.debug(f'[+] Initializing JITT')
         self.remote_sandbox = 'https://monolith.cool'
         self.number_of_cases = number_of_cases
         self.timeout = timeout
         self.openai_api_key = os.getenv('OPENAI_API_KEY')
         self.client = OpenAI(api_key=self.openai_api_key)
-        self.logger = logging.getLogger('jitt_logger')
         
         self.python_test_case_generator_template = PYTHON_TEST_CASE_GENERATOR_TEMPLATE
         self.python_test_case_construction_template = PYTHON_TEST_CASE_CONSTRUCTION_TEMPLATE
+        self.logger.debug(f'[-] JITT Initialized')
     
     def openai_call(self, prompt: str) -> str:
         completion = self.client.chat.completions.create(
@@ -144,7 +147,6 @@ class JITT:
         )
         response = self.openai_call(prompt)
         return response
-        
     
     def get_test_case_construction(self, python_solution_code, test_case_generator_code) -> str:
         prompt = self.python_test_case_construction_template.format(
@@ -152,7 +154,6 @@ class JITT:
             test_case_generator_code=test_case_generator_code, 
             number_of_cases=self.number_of_cases
         )
-        
         response = self.openai_call(prompt)
         try:
             response = json.loads(response)
@@ -172,13 +173,14 @@ class JITT:
 
         response = requests.post('https://monolith.cool/execute', json=data)
         task_id = response.json()['task_id']
+        self.logger.info(f'Task ID: {task_id}')
         return task_id
     
     def get_code_result(self, task_id: str) -> str:
         response = requests.get(f'https://monolith.cool/results/{task_id}')
         return response.json()
     
-    def test_case_construction(self, response: str) -> str:
+    def test_case_parse(self, response: str) -> str:
         try:
             test_cases_json_str = "[]"
             match = re.search(r"<case_data>(.*?)</case_data>", response, re.DOTALL)
@@ -187,21 +189,32 @@ class JITT:
             test_cases_json = json.loads(test_cases_json_str)
             return test_cases_json
         except Exception as e:
-            self.logger.error(f'Test Case Construction Error: {e}')
-            return []
+            self.logger.error(f'Response Parse Error: {e}')
+            self.logger.error(f'Response: {response}')
+            return None
     
-    def generate(self, solution_code: str) -> List:
+    def generate(self, solution_code: str, problem_id: str) -> List:
         try:
-            self.logger.info(f'Getting Test Case Generator')
+            result = {
+                'problem_id': problem_id,
+                'solution_code': solution_code,
+                'test_cases': [],
+                'test_case_generator_code': "",
+                'libraries': [],
+                'import_statements': "",
+                'executable_code': "",
+            }
+            
+            self.logger.debug(f'[+] Getting Test Case Generator')
             test_case_generator_code = self.get_test_case_generator(solution_code)
             
-            self.logger.info(f'Getting Test Case Construction')
+            self.logger.debug(f'[+] Getting Test Case Construction')
             test_case_construction = self.get_test_case_construction(solution_code, test_case_generator_code)
             
-            self.logger.info(f'Parsing Test Case Construction Code')
+            self.logger.debug(f'[+] Parsing Test Case Construction Code')
             if not test_case_construction: return []
             
-            self.logger.info(f'Submitting code to Monolith')
+            self.logger.debug(f'[+] Submitting code to Monolith')
             task_id = self.post_code_submit(
                 test_case_construction['libraries'], 
                 test_case_construction['executable_code'], 
@@ -209,19 +222,47 @@ class JITT:
                 profiling=False
             )
             
-            self.logger.info(f'Retrieving Test Cases')
+            self.logger.debug(f'[+] Retrieving Test Cases')
             response = {'status': 'pending'}
-            for _ in tqdm(range(self.timeout), desc='Waiting for test case generation...'):
+            for _ in range(self.timeout):
                 time.sleep(1)
                 response = self.get_code_result(task_id)
-                if response['status'] in ['done', 'error', 'timeout']:
-                    break
+                if response['status'] in ['done', 'error', 'timeout']: break
+                
+            self.logger.debug(f'[+] Parsing Test Cases')
             
-            self.logger.info(f'Parsing Test Cases')
-            if response['status'] == 'done':
-                test_cases = self.test_case_construction(response['output_dict']['stdout'])
-                return test_cases, test_case_generator_code, test_case_construction
-            return []
+            if response['status'] == 'done' and response['output_dict']['stdout']:
+                test_cases = self.test_case_parse(response['output_dict']['stdout'])
+                if test_cases:
+                    result['test_cases'] = json.dumps(test_cases)
+                    result['test_case_generator_code'] = test_case_generator_code
+                    result['libraries'] = test_case_construction['libraries']
+                    result['import_statements'] = test_case_construction['import_statements']
+                    result['executable_code'] = test_case_construction['executable_code']
+
+            return result
         except Exception as e:
             self.logger.error(f'Generation Error: {e}')
-            return []
+            return result
+        
+
+class JITTCaller:
+    def __init__(self, number_of_workers=20) -> None:
+        self.number_of_workers = number_of_workers
+        print(f"Number of workers: {self.number_of_workers}")
+    
+    @classmethod
+    def generate_lambda(cls, instance):
+        jitt = JITT(number_of_cases=100, timeout=60)
+        return jitt.generate(**instance)
+
+    def batch_generate(self, code_list: List[str]):
+        results = []
+        
+        with multiprocessing.Pool(self.number_of_workers) as pool:
+            with tqdm(total=len(code_list), desc='Batch Generation') as pbar:
+                for result in pool.imap_unordered(JITTCaller.generate_lambda, code_list):
+                    results.append(result)
+                    pbar.update(1)
+
+        return results

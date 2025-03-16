@@ -12,19 +12,19 @@ class Solution:
             matrix[i].reverse()
 """
 jitt = JITT(number_of_cases=5, timeout=30)
-test_cases, test_case_generator_code, test_case_construction = jitt.generate(code)
+response_dict = jitt.generate(code)
 
 print("======== Test Cases ========")
-print(test_cases)
+print(response_dict['test_cases'])
 
 print("======== Test Case Generator Code ========")
-print(test_case_generator_code)
+print(response_dict['test_case_generator_code'])
 
 print("======== Libraries ========")
-print(test_case_construction['libraries'])
+print(response_dict['test_case_construction']['libraries'])
 
 print("======== Import Statements ========")
-print(test_case_construction['import_statements'])
+print(response_dict['test_case_construction']['import_statements'])
 
 print("======== Executable Code ========")
-print(test_case_construction['executable_code']) 
+print(response_dict['test_case_construction']['executable_code']) 
