@@ -121,6 +121,7 @@ class JITT:
         self.logger = logging.getLogger('jitt_logger')
         self.logger.setLevel(logging.ERROR)
         self.logger.debug(f'[+] Initializing JITT')
+        
         self.remote_sandbox = 'https://monolith.cool'
         self.number_of_cases = number_of_cases
         self.timeout = timeout
@@ -129,7 +130,6 @@ class JITT:
         
         self.python_test_case_generator_template = PYTHON_TEST_CASE_GENERATOR_TEMPLATE
         self.python_test_case_construction_template = PYTHON_TEST_CASE_CONSTRUCTION_TEMPLATE
-        self.logger.debug(f'[-] JITT Initialized')
     
     def openai_call(self, prompt: str) -> str:
         completion = self.client.chat.completions.create(
@@ -245,7 +245,6 @@ class JITT:
             self.logger.error(f'Generation Error: {e}')
             return result
         
-
 class JITTCaller:
     def __init__(self, number_of_workers=20) -> None:
         self.number_of_workers = number_of_workers
