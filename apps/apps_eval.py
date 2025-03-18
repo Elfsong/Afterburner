@@ -4,6 +4,7 @@ import json
 import textwrap
 from tqdm import tqdm
 from monolith import monolith
+from multiprocessing import Pool
 from datasets import load_dataset
 from collections import OrderedDict
 
@@ -55,6 +56,8 @@ if __name__ == '__main__':
         print("Failed")
 """
 
+monolith = monolith.Monolith(backend_url='https://monolith.cool')
+
 def apps_construction(solution_code, test_cases):
     solution_code = textwrap.indent(solution_code.strip(), "\t")
     test_case_list_str = json.dumps(test_cases, indent=4)
@@ -70,7 +73,7 @@ def apps_eval(solution_code, test_cases, timeout=60):
         test_code = apps_construction(solution_code, test_cases)
         task_id = monolith.post_code_submit(lang="python", libs=[], code=test_code, timeout=timeout, profiling=False)["task_id"]
 
-        for _ in range(10):
+        for _ in range(timeout):
             time.sleep(1)
             result = monolith.get_code_result(task_id)
             if result["status"] != "processing":
@@ -109,22 +112,38 @@ def apps_batch_eval(solution_code_list, test_cases, timeout=30):
     return list(task_id_dict.values())
 
 
-ds = load_dataset("Elfsong/APPS", split="test")
-monolith = monolith.Monolith(backend_url='https://monolith.cool')
+if __name__ == "__main__":
+    ds = load_dataset("Elfsong/APPS", split="test")
 
-t, c = 0, 0
-for instance in tqdm(ds):    
-    solutions = json.loads(instance["solutions"])
-    test_cases = json.loads(instance["test_cases"])
-    starter_code = instance["starter_code"]
+    total_instances = len(ds)
+    correct_count = 0
 
-    solution_code_list = ['\n# Starter Coer\n' + starter_code + '\n# Solution Code\n' + solution for solution in solutions]
-    results = apps_batch_eval(solution_code_list, test_cases, timeout=30)
-    print(results)
+    for instance in ds:
+        problem_id = instance["problem_id"]
+        solutions = json.loads(instance["solutions"])
+        test_cases = json.loads(instance["test_cases"])
+        starter_code = instance["starter_code"]
 
-    if all(results):
-        c += 1
-    t += 1
+        cases = []
+        for solution in solutions:
+            solution_code = f"\n# Starter Code\n{starter_code}\n# Solution Code\n{solution}"
+            cases.append((solution_code, test_cases, 60))
+
+        with Pool(8) as pool:
+            outcomes = list(pool.starmap(apps_eval, cases))
+
+        print(outcomes)
+
+        if all(outcomes):
+            print(f'[PASSED] - [{problem_id}]')
+            correct_count += 1
+        else:
+            print(f'[FAILED] - [{problem_id}]')
+
+    print(f"{correct_count} out of {total_instances} instances passed")
+
+
+
    
 
 
