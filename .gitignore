@@ -2,3 +2,6 @@ __pycache__/*
 model_sampling/run.sh
 jitt.log
 .vscode/launch.json
+monolith/dist/*
+monolith/build/*
+monolith/monolith_lib.egg-info/*

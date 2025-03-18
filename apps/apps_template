@@ -1,0 +1,39 @@
+import io
+import sys
+import unittest
+
+def solution():
+{solution_code}
+
+class TestSolution(unittest.TestCase):
+    def run_io_fun(self, input_data):
+        backup_stdin = sys.stdin
+        backup_stdout = sys.stdout
+        try:
+            sys.stdin = io.StringIO(input_data)
+            output_catcher = io.StringIO()
+            sys.stdout = output_catcher
+
+            solution()
+
+            output_catcher.seek(0)
+            return output_catcher.read()
+        finally:
+            sys.stdin = backup_stdin
+            sys.stdout = backup_stdout
+
+def make_test_function(input_data, expected):
+    def test_function(self):
+        actual = self.run_io_fun(input_data)
+        self.assertEqual(expected, actual)
+    return test_function
+
+test_case_list = {test_case_list}
+
+for i, case in enumerate(test_case_list, start=1):
+    test_name = f"test_case_{{i}}"
+    test_func = make_test_function(case['input'], case['output'])
+    setattr(TestSolution, test_name, test_func)
+
+if __name__ == '__main__':
+    unittest.main(verbosity=2)
