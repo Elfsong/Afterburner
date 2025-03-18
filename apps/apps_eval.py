@@ -141,10 +141,3 @@ if __name__ == "__main__":
             print(f'[FAILED] - [{problem_id}]')
 
     print(f"{correct_count} out of {total_instances} instances passed")
-
-
-
-   
-
-
-
