@@ -12,9 +12,10 @@ from tqdm import tqdm
 from typing import List
 from openai import OpenAI
 from monolith import monolith
-from multiprocessing import Pool
+# from multiprocessing import Pool
 from collections import OrderedDict
 from datasets import load_dataset, Dataset
+from multiprocessing.dummy import Pool as ThreadPool
 
 
 TEMPLATE = """import io
@@ -108,12 +109,15 @@ Instructions:
     
     @classmethod
     def apps_evaluation(cls, solution_code: str, test_cases: List, timeout: int) -> bool:
+        response = {'passed': False, 'time': 1e9, 'memory': 1e9, 'status': 'error', 'elapsed_time': 1e9}
         try:
+            start_time = time.time()
             monolith_client = monolith.Monolith(backend_url='https://monolith.cool')
             
             # Check if monolith is busy
-            while monolith_client.get_status()['current_queue_size'] > 64:
-                time.sleep(5)
+            while monolith_client.get_status()['current_queue_size'] > 128:
+                print(f"Monolith is busy, waiting for 1 sec...")
+                time.sleep(1)
             
             # Construct Test Code
             solution_code = textwrap.indent(solution_code.strip(), "\t")
@@ -131,73 +135,90 @@ Instructions:
                     break
             
             # Check if Test Code Passed
-            passed = False
             if result["status"] == "done":
-                passed = True if result['output_dict']['stdout'] == 'Success\n' else False    
-            return passed
+                response['passed'] = True if result['output_dict']['stdout'] == 'Success\n' else False
+                response['time'] = result['output_dict']['time_v']['elapsed_time_seconds']
+                response['memory'] = result['output_dict']['time_v']['max_resident_set_kb']
+            
+            end_time = time.time()
+            response['elapsed_time'] = end_time - start_time
+            response['status'] = result['status']
+
         except Exception as e:
             print(f"Error: {e}")
-            return False
+        finally:
+            return response
     
     def apps_pipeline(self):
-        apps_data = load_dataset("Elfsong/APPS", split="test[:10]")
-        # total_count, passed_count = 0, 0
-        
-        new_apps_data = list()
-        
-        for instance in apps_data:
-            problem_id = instance["problem_id"]
-            problem_content = instance["question"]
-            code_prompt = instance["starter_code"]
-            difficulty = instance["difficulty"]
-            solutions = json.loads(instance["solutions"])
-            test_cases = json.loads(instance["test_cases"])
-            print(f'[+] Problem ID: {problem_id}, Difficulty: {difficulty}')
+        for i in range(66, 100):
+            print(f'[+] Processing Test Set: {i}% - {(i+1)}%')
+            apps_data = load_dataset("Elfsong/APPS", 'default', split=f"test[{i}%:{(i+1)}%]")        
+            new_apps_data = list()
             
-            cases = [(solution, test_cases, 60) for solution in solutions]
+            total_count = len(apps_data)
+            for index, instance in enumerate(apps_data):
+                problem_id = instance["problem_id"]
+                problem_content = instance["question"]
+                code_prompt = instance["starter_code"]
+                difficulty = instance["difficulty"]
+                solutions = json.loads(instance["solutions"])
+                test_cases = json.loads(instance["test_cases"])
+                print(f'[+] Problem-{problem_id} [{index}/{total_count}]')
+                
+                cases = [(solution, test_cases, 60) for solution in solutions]
+                
+                # Check Solutions
+                results = list()
+                
+                with ThreadPool(64) as pool:
+                    with tqdm(total=len(solutions), desc='Solution Evaluation') as pbar:
+                        for result in pool.imap(apps_evaluation_unpacker, cases):
+                            results.append(result)
+                            pbar.update(1)
+
+                print('Results:', ''.join('🟢' if result['passed'] else '🔴' for result in results))
+                
+                # for result in results:
+                #     print(f"[-] Passed: {'🟢' if result['passed'] else '🔴'} \t Time: {result['time']:.2f} Sec \t Memory: {result['memory']:.2f} KB \t Status: {result['status']} \t Elapsed_time: {result['elapsed_time']}")
+                
+                verified_solutions = list()
+                for (solution, result) in zip(solutions, results):
+                    if result['passed']:
+                        verified_solutions.append({
+                            'code': solution, 
+                            'passed': bool(result['passed']),
+                            'time': float(result['time']),
+                            'memory': float(result['memory']),
+                            'status': str(result['status'])
+                        })
+                
+                new_apps_data.append({
+                    "problem_id": problem_id,
+                    "problem_content": problem_content,
+                    "code_prompt": code_prompt,
+                    "difficulty": difficulty,
+                    "solutions": json.dumps(verified_solutions),
+                    "test_cases": json.dumps(test_cases),
+                })
             
-            # Check Solutions
-            start_time = time.time()
-            results = list()
-            with Pool(6) as pool:
-                with tqdm(total=len(solutions), desc='Solution Evaluation') as pbar:
-                    for result in pool.imap(apps_evaluation_unpacker, cases):
-                        results.append(result)
-                        pbar.update(1)
-            end_time = time.time()
+                
+                # # Generate Solution Code
+                # generated_solution = self.apps_generation(problem_content=problem_content, code_prompt=code_prompt)
+                
+                # # Evaluate Solution Code
+                # passed = self.apps_evaluation(solution_code=generated_solution, test_cases=test_cases, timeout=60)
+                # print(f"Problem ID: {problem_id}, Passed: {passed}")
+                
+                # if passed:
+                #     passed_count += 1
+                # total_count += 1
+                print('============================================================')
             
-            print(f"Time Taken: {end_time-start_time:.2f} sec")
-            print('Results:', ''.join('🟢' if result else '🔴' for result in results))
-            solutions = [solution for solution, result in zip(solutions, results) if result]
+            # Save New APPS Data
+            new_apps_dataset = Dataset.from_list(new_apps_data)
+            new_apps_dataset.push_to_hub("Elfsong/APPS", 'verified', split=f"{i}_{(i+1)}")
             
-            new_apps_data.append({
-                "problem_id": problem_id,
-                "problem_content": problem_content,
-                "code_prompt": code_prompt,
-                "difficulty": difficulty,
-                "solutions": json.dumps(solutions),
-                "test_cases": json.dumps(test_cases),
-                "results": results
-            })
-        
-            
-            # # Generate Solution Code
-            # generated_solution = self.apps_generation(problem_content=problem_content, code_prompt=code_prompt)
-            
-            # # Evaluate Solution Code
-            # passed = self.apps_evaluation(solution_code=generated_solution, test_cases=test_cases, timeout=60)
-            # print(f"Problem ID: {problem_id}, Passed: {passed}")
-            
-            # if passed:
-            #     passed_count += 1
-            # total_count += 1
-            print('============================================================')
-        
-        # Save New APPS Data
-        new_apps_dataset = Dataset.from_list(new_apps_data)
-        new_apps_dataset.push_to_hub("Elfsong/APPS", 'verified')
-        
-        # print(f"Total: {total_count}, Passed: {passed_count}, Pass@1: {passed_count/total_count:.2f}")
+            # print(f"Total: {total_count}, Passed: {passed_count}, Pass@1: {passed_count/total_count:.2f}")
             
 
 if __name__ == "__main__":
