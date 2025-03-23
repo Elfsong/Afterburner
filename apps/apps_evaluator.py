@@ -70,10 +70,10 @@ def apps_evaluation_unpacker(args):
 
 class AppsEvaluator:
     def __init__(self, model_name: str):
-        self.api_key = os.getenv('API_KEY')
-        self.model_client = OpenAI(api_key=self.api_key)
+        # self.api_key = os.getenv('API_KEY')
+        # self.model_client = OpenAI(api_key=self.api_key)
         self.model_name = model_name
-        self.number_of_workers = 8
+        # self.number_of_workers = 8
     
     def model_inference(self, model_name: str, prompt: str) -> str:
         completion = self.model_client.chat.completions.create(
@@ -109,15 +109,24 @@ Instructions:
     
     @classmethod
     def apps_evaluation(cls, solution_code: str, test_cases: List, timeout: int) -> bool:
-        response = {'passed': False, 'time': 1e9, 'memory': 1e9, 'status': 'error', 'elapsed_time': 1e9}
+        response = {'passed': False, 'time': 1e9, 'memory': 1e9, 'status': 'error', 'elapsed_time': 1e9, 'wait_time': 1e9, 'process_time': 1e9}
         try:
             start_time = time.time()
-            monolith_client = monolith.Monolith(backend_url='https://monolith.cool')
             
-            # Check if monolith is busy
-            while monolith_client.get_status()['current_queue_size'] > 128:
-                print(f"Monolith is busy, waiting for 1 sec...")
-                time.sleep(1)
+            monolith_client = monolith.Monolith(backend_url='https://monolith.cool')
+
+            try:
+                while True:
+                    status = monolith_client.get_status()
+                    ratio = status['current_queue_size'] / status['max_queue_size']
+                    if ratio < 0.8:
+                        break
+                    else:
+                        print(f"Monolith Queue Full: {ratio}")
+                        time.sleep(5)
+            except Exception as e:
+                print(f"Monolith Busy: {e}")
+                time.sleep(5)
             
             # Construct Test Code
             solution_code = textwrap.indent(solution_code.strip(), "\t")
@@ -128,11 +137,13 @@ Instructions:
             task_id = monolith_client.post_code_submit(lang="python", libs=[], code=test_code, timeout=timeout, profiling=False)["task_id"]
             
             # Wait for Test Code to Finish
+            start_time_1 = time.time()
             for _ in range(timeout):
                 time.sleep(1)
                 result = monolith_client.get_code_result(task_id)
                 if result["status"] != "processing":
                     break
+            end_time_1 = time.time()
             
             # Check if Test Code Passed
             if result["status"] == "done":
@@ -142,15 +153,16 @@ Instructions:
             
             end_time = time.time()
             response['elapsed_time'] = end_time - start_time
+            response['wait_time'] = end_time_1 - start_time_1
             response['status'] = result['status']
 
         except Exception as e:
-            print(f"Error: {e}")
+            print(f"Evaluation Error: {e}")
         finally:
             return response
     
     def apps_pipeline(self):
-        for i in range(66, 100):
+        for i in range(85, 100):
             print(f'[+] Processing Test Set: {i}% - {(i+1)}%')
             apps_data = load_dataset("Elfsong/APPS", 'default', split=f"test[{i}%:{(i+1)}%]")        
             new_apps_data = list()
@@ -176,10 +188,12 @@ Instructions:
                             results.append(result)
                             pbar.update(1)
 
-                print('Results:', ''.join('🟢' if result['passed'] else '🔴' for result in results))
+                # Brief Results
+                # print('Results:', ''.join('🟢' if result['passed'] else '🔴' for result in results))
                 
-                # for result in results:
-                #     print(f"[-] Passed: {'🟢' if result['passed'] else '🔴'} \t Time: {result['time']:.2f} Sec \t Memory: {result['memory']:.2f} KB \t Status: {result['status']} \t Elapsed_time: {result['elapsed_time']}")
+                # Detailed Results
+                for result in results:
+                    print(f"[-] Passed: {'🟢' if result['passed'] else '🔴'} \t Time: {result['time']:.2f} Sec \t Status: {result['status']} \t Elapsed_time: {result['elapsed_time']:.2f} \t Wait_time: {result['wait_time']:.2f}")
                 
                 verified_solutions = list()
                 for (solution, result) in zip(solutions, results):
