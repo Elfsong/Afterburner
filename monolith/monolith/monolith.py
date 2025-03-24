@@ -8,17 +8,18 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 class Monolith:
-    def __init__(self, backend_url='https://monolith.cool', retries=5, backoff_factor=0.2, status_forcelist=(502, 503, 504)) -> None:
+    def __init__(self, backend_url='https://monolith.cool', retries=5, backoff_factor=0.2) -> None:
         self.backend_url = backend_url
         self.session = requests.Session()
+        self.status_forcelist = (502, 503, 504)
         
         retry_strategy = Retry(
             total=retries,
             backoff_factor=backoff_factor,
-            status_forcelist=status_forcelist,
+            status_forcelist=self.status_forcelist,
             allowed_methods=["GET", "POST"]
         )
-        
+
         adapter = HTTPAdapter(max_retries=retry_strategy)
         self.session.mount("https://", adapter)
         self.session.mount("http://", adapter)

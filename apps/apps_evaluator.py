@@ -113,20 +113,20 @@ Instructions:
         try:
             start_time = time.time()
             
-            monolith_client = monolith.Monolith(backend_url='https://monolith.cool')
+            monolith_client = monolith.Monolith(backend_url='https://monolith.cool', retries=3)
 
-            try:
-                while True:
-                    status = monolith_client.get_status()
-                    ratio = status['current_queue_size'] / status['max_queue_size']
-                    if ratio < 0.8:
-                        break
-                    else:
-                        print(f"Monolith Queue Full: {ratio}")
-                        time.sleep(5)
-            except Exception as e:
-                print(f"Monolith Busy: {e}")
-                time.sleep(5)
+            # try:
+            #     while True:
+            #         status = monolith_client.get_status()
+            #         ratio = status['current_queue_size'] / status['max_queue_size']
+            #         if ratio < 0.8:
+            #             break
+            #         else:
+            #             print(f"Monolith Queue Full: {ratio}")
+            #             time.sleep(1)
+            # except Exception as e:
+            #     print(f"Monolith Busy: {e}")
+            #     time.sleep(1)
             
             # Construct Test Code
             solution_code = textwrap.indent(solution_code.strip(), "\t")
@@ -157,7 +157,7 @@ Instructions:
             response['status'] = result['status']
 
         except Exception as e:
-            print(f"Evaluation Error: {e}")
+            print(f"Evaluation Error: {e}", e.with_traceback())
         finally:
             return response
     
@@ -182,7 +182,7 @@ Instructions:
                 # Check Solutions
                 results = list()
                 
-                with ThreadPool(64) as pool:
+                with ThreadPool(32) as pool:
                     with tqdm(total=len(solutions), desc='Solution Evaluation') as pbar:
                         for result in pool.imap(apps_evaluation_unpacker, cases):
                             results.append(result)
@@ -193,7 +193,7 @@ Instructions:
                 
                 # Detailed Results
                 for result in results:
-                    print(f"[-] Passed: {'🟢' if result['passed'] else '🔴'} \t Time: {result['time']:.2f} Sec \t Status: {result['status']} \t Elapsed_time: {result['elapsed_time']:.2f} \t Wait_time: {result['wait_time']:.2f}")
+                    print(f"[-] Passed: {'🟢' if result['passed'] else '🔴'} \t Time: {result['time']:.2f} Sec \t Memory: {result['memory']:.2f} KB \t Elapsed_time: {result['elapsed_time']:.2f}")
                 
                 verified_solutions = list()
                 for (solution, result) in zip(solutions, results):
