@@ -5,3 +5,6 @@ jitt.log
 monolith/dist/*
 monolith/build/*
 monolith/monolith_lib.egg-info/*
+grpo/Qwen/*
+grpo/wandb/*
+wandb/*
