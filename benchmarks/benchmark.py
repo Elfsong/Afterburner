@@ -76,7 +76,7 @@ def make_test_function(input_data, expected):
     return test_function
 
 test_case_list = {test_case_list}
-test_case_list = test_case_list * {replay_times}
+test_case_list = test_case_list * {case_multiply}
 
 for i, case in enumerate(test_case_list, start=1):
     test_name = f"test_case_{{i}}"
@@ -118,6 +118,8 @@ class APPSBenchmark(Benchmark):
         # Load the dataset
         self.logger.info(f"[+] Loading dataset [{self.dataset_name}]...")
         self.ds = load_dataset("Elfsong/apps_verified", "default")['train']
+        self.case_multiply = 512
+        self.enable_replay = False
         
     def instance_inference(self, instance) -> Any:        
         prompt = APPS_INFER_TEMPLATE.format(problem_content=instance['problem_content'], code_prompt=instance['code_prompt'])
@@ -139,28 +141,26 @@ class APPSBenchmark(Benchmark):
             return generated_code
     
     @classmethod
-    def instance_eval(cls, solution_code, instance, replay_times=1) -> Any:
+    def instance_eval(cls, solution_code, instance) -> Any:
         monolith_client = monolith.Monolith(backend_url='https://monolith.cool', retries=3)
-        response = {'passed': False, 'time': 1e9, 'memory': 1e9, 'status': 'error', 'elapsed_time': 1e9, 'wait_time': 1e9, 'process_time': 1e9}
+        response = {'passed': False, 'time': 1e9, 'memory': 1e9, 'status': 'error', 'elapsed_time': 1e9}
         
         try:
             start_time = time.time()
             solution_code = textwrap.indent(solution_code.strip(), "\t")
             test_cases = json.loads(instance["test_cases"])
             test_case_list_str = json.dumps(test_cases, indent=4)
-            test_code = APPS_EVAL_TEMPLATE.format(solution_code=solution_code, test_case_list=test_case_list_str, replay_times=replay_times)
+            test_code = APPS_EVAL_TEMPLATE.format(solution_code=solution_code, test_case_list=test_case_list_str, case_multiply=APPSBenchmark.case_multiply)
             
             # Submit Test Code to Monolith
             task_id = monolith_client.post_code_submit(lang="python", libs=[], code=test_code, timeout=60, profiling=False)["task_id"]
             
             # Wait for Test Code to Finish
-            start_time_1 = time.time()
             for _ in range(60):
                 time.sleep(1)
                 result = monolith_client.get_code_result(task_id)
                 if result["status"] != "processing":
                     break
-            end_time_1 = time.time()
             
             # Check if Test Code Passed
             if result["status"] == "done":
@@ -170,7 +170,6 @@ class APPSBenchmark(Benchmark):
             
             end_time = time.time()
             response['elapsed_time'] = end_time - start_time
-            response['wait_time'] = end_time_1 - start_time_1
             response['status'] = result['status']
 
         except Exception as e:
@@ -188,7 +187,15 @@ class APPSBenchmark(Benchmark):
             if generated_code is None: return execution_result
                 
             # Evaluating the generated code solution
-            execution_result = APPSBenchmark.instance_eval(generated_code, instance, replay_times=512)
+            execution_result = APPSBenchmark.instance_eval(generated_code, instance)
+            
+            # Calculating the result distribution
+            time_distribution, memory_distribution, integral_distribution = list(), list(), list()
+            
+            if APPSBenchmark.enabled_replay:
+                pass
+            else:
+                pass
             
             result_str = json.dumps({
                 "problem_id": problem_id,
