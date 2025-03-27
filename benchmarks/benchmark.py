@@ -53,7 +53,7 @@ class MercuryBenchmark(Benchmark):
         
         # Load the dataset
         self.logger.info(f"[+] Loading dataset [{self.dataset_name}]...")
-        self.ds = load_dataset("Elfsong/Mercury", "eval")
+        self.ds = load_dataset("Elfsong/Mercury", split="eval")
         
     def inference(self, instance) -> Any:
         return instance
