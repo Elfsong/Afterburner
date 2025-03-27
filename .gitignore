@@ -8,3 +8,4 @@ monolith/monolith_lib.egg-info/*
 grpo/Qwen/*
 grpo/wandb/*
 wandb/*
+data/*
