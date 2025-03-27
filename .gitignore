@@ -9,3 +9,4 @@ grpo/Qwen/*
 grpo/wandb/*
 wandb/*
 data/*
+benchmarks/benchmark.log

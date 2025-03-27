@@ -76,6 +76,7 @@ def make_test_function(input_data, expected):
     return test_function
 
 test_case_list = {test_case_list}
+test_case_list = test_case_list * {replay_times}
 
 for i, case in enumerate(test_case_list, start=1):
     test_name = f"test_case_{{i}}"
@@ -138,7 +139,7 @@ class APPSBenchmark(Benchmark):
             return generated_code
     
     @classmethod
-    def instance_eval(cls, solution_code, instance) -> Any:
+    def instance_eval(cls, solution_code, instance, replay_times=1) -> Any:
         monolith_client = monolith.Monolith(backend_url='https://monolith.cool', retries=3)
         response = {'passed': False, 'time': 1e9, 'memory': 1e9, 'status': 'error', 'elapsed_time': 1e9, 'wait_time': 1e9, 'process_time': 1e9}
         
@@ -147,7 +148,7 @@ class APPSBenchmark(Benchmark):
             solution_code = textwrap.indent(solution_code.strip(), "\t")
             test_cases = json.loads(instance["test_cases"])
             test_case_list_str = json.dumps(test_cases, indent=4)
-            test_code = APPS_EVAL_TEMPLATE.format(solution_code=solution_code, test_case_list=test_case_list_str)
+            test_code = APPS_EVAL_TEMPLATE.format(solution_code=solution_code, test_case_list=test_case_list_str, replay_times=replay_times)
             
             # Submit Test Code to Monolith
             task_id = monolith_client.post_code_submit(lang="python", libs=[], code=test_code, timeout=60, profiling=False)["task_id"]
@@ -184,12 +185,10 @@ class APPSBenchmark(Benchmark):
             
             # Generating code solution for the problem
             generated_code = self.instance_inference(instance)
-            if generated_code is None:
-                self.logger.error(f"[+] Inference Error.")
-                return execution_result
+            if generated_code is None: return execution_result
                 
             # Evaluating the generated code solution
-            execution_result = APPSBenchmark.instance_eval(generated_code, instance)
+            execution_result = APPSBenchmark.instance_eval(generated_code, instance, replay_times=512)
             
             result_str = json.dumps({
                 "problem_id": problem_id,
@@ -202,7 +201,7 @@ class APPSBenchmark(Benchmark):
             return execution_result
         
         results = []
-        with ThreadPool(8) as pool:
+        with ThreadPool(16) as pool:
             with tqdm(total=len(self.ds), desc=f'Evaluating [{self.dataset_name}]') as pbar:
                 for result in pool.imap(eval_wrapper, self.ds):
                     results.append(result)
