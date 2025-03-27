@@ -200,7 +200,7 @@ class APPSBenchmark(Benchmark):
             else:
                 for solution in instance['solutions']:
                     time_distribution.append(float(solution['time']) * APPSBenchmark.case_multiply)
-                    memory_distribution.append(float(solution['memory']) * APPSBenchmark.case_multiplys)
+                    memory_distribution.append(float(solution['memory']) * APPSBenchmark.case_multiply)
             
             result_str = json.dumps({
                 "problem_id": problem_id,
