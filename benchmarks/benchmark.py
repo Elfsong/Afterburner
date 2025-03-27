@@ -193,9 +193,14 @@ class APPSBenchmark(Benchmark):
             time_distribution, memory_distribution, integral_distribution = list(), list(), list()
             
             if APPSBenchmark.enabled_replay:
-                pass
+                for solution in instance['solutions']:
+                    execution_result = APPSBenchmark.instance_eval(solution['code'], instance)
+                    time_distribution.append(float(execution_result['time']))
+                    memory_distribution.append(float(execution_result['memory']))
             else:
-                pass
+                for solution in instance['solutions']:
+                    time_distribution.append(float(solution['time']) * APPSBenchmark.case_multiply)
+                    memory_distribution.append(float(solution['memory']) * APPSBenchmark.case_multiplys)
             
             result_str = json.dumps({
                 "problem_id": problem_id,
