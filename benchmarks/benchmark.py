@@ -143,7 +143,7 @@ class APPSBenchmark(Benchmark):
     @classmethod
     def instance_eval(cls, solution_code, instance) -> Any:
         monolith_client = monolith.Monolith(backend_url='https://monolith.cool', retries=3)
-        response = {'passed': False, 'time': 1e9, 'memory': 1e9, 'status': 'error', 'elapsed_time': 1e9}
+        response = {'passed': False, 'time': float('inf'), 'memory': float('inf'), 'status': 'error', 'elapsed_time': float('inf')}
         
         try:
             start_time = time.time()
@@ -218,6 +218,7 @@ class APPSBenchmark(Benchmark):
                 for result in pool.imap(eval_wrapper, self.ds):
                     results.append(result)
                     pbar.update(1)
+
             
     
 class MercuryBenchmark(Benchmark):
