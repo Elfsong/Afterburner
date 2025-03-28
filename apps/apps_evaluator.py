@@ -49,6 +49,7 @@ def make_test_function(input_data, expected):
     return test_function
 
 test_case_list = {test_case_list}
+test_case_list = test_case_list * {case_multiply}
 
 for i, case in enumerate(test_case_list, start=1):
     test_name = f"test_case_{{i}}"
@@ -69,91 +70,47 @@ def apps_evaluation_unpacker(args):
     return AppsEvaluator.apps_evaluation(*args)
 
 class AppsEvaluator:
-    def __init__(self, model_name: str):
-        # self.api_key = os.getenv('API_KEY')
-        # self.model_client = OpenAI(api_key=self.api_key)
-        self.model_name = model_name
-        # self.number_of_workers = 8
-    
-    def model_inference(self, model_name: str, prompt: str) -> str:
-        completion = self.model_client.chat.completions.create(
-            model=model_name,
-            messages=[
-                {"role": "system",   "content": "You're a world-class programmer. Write an efficient Python solution to the given problem."},
-                {"role": "user",     "content": prompt},
-            ]
-        )
-        return completion.choices[0].message.content
-    
-    def apps_generation(self, problem_content: str, code_prompt: str) -> str:
-        try:
-            prompt = f"""
-Problem:
-{problem_content}
-
-{code_prompt}
-
-Instructions:
-1. Write an efficient Python code for the problem.
-2. Read input from stdin and output results to stdout.
-3. Enclose the complete, executable solution between triple backticks (```python and ```).
-            """
-            response = self.model_inference(model_name=self.model_name, prompt=prompt)
-            
-            pattern = r"```python(.*?)```"
-            generated_code = re.findall(pattern, response, flags=re.DOTALL)[0]
-        except Exception as e:
-            print(f"Generation Error: {e}")
-            generated_code = ""
-        return code_prompt+'\n'+generated_code
+    def __init__(self, monolith_retries, monolith_timeout, case_multiply, number_of_workers):
+        self.monolith_retries = monolith_retries
+        self.monolith_timeout = monolith_timeout
+        self.case_multiply = case_multiply
+        self.number_of_workers = number_of_workers
     
     @classmethod
     def apps_evaluation(cls, solution_code: str, test_cases: List, timeout: int) -> bool:
-        response = {'passed': False, 'time': 1e9, 'memory': 1e9, 'status': 'error', 'elapsed_time': 1e9, 'wait_time': 1e9, 'process_time': 1e9}
-        try:
-            start_time = time.time()
-            
+        response = {
+            'passed': False, 
+            'time': float('inf'), 
+            'memory': float('inf'), 
+            'integral': float('inf'), 
+            'status': 'error',
+        }
+        
+        try:            
             monolith_client = monolith.Monolith(backend_url='https://monolith.cool', retries=3)
-
-            # try:
-            #     while True:
-            #         status = monolith_client.get_status()
-            #         ratio = status['current_queue_size'] / status['max_queue_size']
-            #         if ratio < 0.8:
-            #             break
-            #         else:
-            #             print(f"Monolith Queue Full: {ratio}")
-            #             time.sleep(1)
-            # except Exception as e:
-            #     print(f"Monolith Busy: {e}")
-            #     time.sleep(1)
             
             # Construct Test Code
             solution_code = textwrap.indent(solution_code.strip(), "\t")
             test_case_list_str = json.dumps(test_cases, indent=4)
-            test_code = TEMPLATE.format(solution_code=solution_code, test_case_list=test_case_list_str)
+            test_code = TEMPLATE.format(solution_code=solution_code, test_case_list=test_case_list_str, case_multiply=100)
             
             # Submit Test Code to Monolith
-            task_id = monolith_client.post_code_submit(lang="python", libs=[], code=test_code, timeout=timeout, profiling=False)["task_id"]
+            task_id = monolith_client.post_code_submit(lang="python", libs=[], code=test_code, timeout=timeout, profiling=True)["task_id"]
             
             # Wait for Test Code to Finish
-            start_time_1 = time.time()
             for _ in range(timeout):
-                time.sleep(1)
+                time.sleep(2)
                 result = monolith_client.get_code_result(task_id)
                 if result["status"] != "processing":
                     break
-            end_time_1 = time.time()
             
             # Check if Test Code Passed
             if result["status"] == "done":
                 response['passed'] = True if result['output_dict']['stdout'] == 'Success\n' else False
-                response['time'] = result['output_dict']['time_v']['elapsed_time_seconds']
-                response['memory'] = result['output_dict']['time_v']['max_resident_set_kb']
-            
-            end_time = time.time()
-            response['elapsed_time'] = end_time - start_time
-            response['wait_time'] = end_time_1 - start_time_1
+                response['time'] = result['output_dict']['duration']
+                response['memory'] = result['output_dict']['peak_memory']
+                response['integral'] = result['output_dict']['integral']
+
             response['status'] = result['status']
 
         except Exception as e:
@@ -162,8 +119,8 @@ Instructions:
             return response
     
     def apps_pipeline(self):
-        for i in range(85, 100):
-            print(f'[+] Processing Test Set: {i}% - {(i+1)}%')
+        for i in range(100):
+            print(f'[+] Processing Test Set: [{i}% - {(i+1)}%]')
             apps_data = load_dataset("Elfsong/APPS", 'default', split=f"test[{i}%:{(i+1)}%]")        
             new_apps_data = list()
             
@@ -175,37 +132,47 @@ Instructions:
                 difficulty = instance["difficulty"]
                 solutions = json.loads(instance["solutions"])
                 test_cases = json.loads(instance["test_cases"])
-                print(f'[+] Problem-{problem_id} [{index}/{total_count}]')
                 
-                cases = [(solution, test_cases, 60) for solution in solutions]
+                # Prepare Test Packs (add code_prompt to each solution)
+                test_packs = [(code_prompt + '\n' + solution, test_cases, self.monolith_timeout) for solution in solutions]
                 
-                # Check Solutions
+                print(f'[+] Problem {problem_id} [{index}/{total_count}]')
+                
+                # Check Monolith Status
+                while True:
+                    monolith_client = monolith.Monolith(backend_url='https://monolith.cool', retries=3)
+                    queue_size = monolith_client.get_status().get('current_queue_size', -1)
+                    if queue_size == 0:
+                        break
+                    time.sleep(5)
+                    
+                
+                # Parallel Evaluation
                 results = list()
-                
-                with ThreadPool(32) as pool:
-                    with tqdm(total=len(solutions), desc='Solution Evaluation') as pbar:
-                        for result in pool.imap(apps_evaluation_unpacker, cases):
+                with ThreadPool(self.number_of_workers) as pool:
+                    with tqdm(total=len(test_packs), desc='Solution Evaluation') as pbar:
+                        for result in pool.imap(apps_evaluation_unpacker, test_packs):
                             results.append(result)
                             pbar.update(1)
-
-                # Brief Results
-                # print('Results:', ''.join('🟢' if result['passed'] else '🔴' for result in results))
                 
-                # Detailed Results
+                # Detailed Results Display
                 for result in results:
-                    print(f"[-] Passed: {'🟢' if result['passed'] else '🔴'} \t Time: {result['time']:.2f} Sec \t Memory: {result['memory']:.2f} KB \t Elapsed_time: {result['elapsed_time']:.2f}")
+                    print(f"[-] Passed: {'🟢' if result['passed'] else '🔴'} \t Status: {result['status']} \t\t Time: {result['time']:.2f} ms \t Memory: {result['memory']:.2f} KB \t Integral: {result['integral']:.2f}")
                 
+                # Verify Solutions
                 verified_solutions = list()
                 for (solution, result) in zip(solutions, results):
                     if result['passed']:
                         verified_solutions.append({
                             'code': solution, 
+                            'status': str(result['status']),
                             'passed': bool(result['passed']),
                             'time': float(result['time']),
                             'memory': float(result['memory']),
-                            'status': str(result['status'])
+                            'integral': float(result['integral'])
                         })
-                
+                        
+                # Save New APPS Data
                 new_apps_data.append({
                     "problem_id": problem_id,
                     "problem_content": problem_content,
@@ -215,26 +182,13 @@ Instructions:
                     "test_cases": json.dumps(test_cases),
                 })
             
-                
-                # # Generate Solution Code
-                # generated_solution = self.apps_generation(problem_content=problem_content, code_prompt=code_prompt)
-                
-                # # Evaluate Solution Code
-                # passed = self.apps_evaluation(solution_code=generated_solution, test_cases=test_cases, timeout=60)
-                # print(f"Problem ID: {problem_id}, Passed: {passed}")
-                
-                # if passed:
-                #     passed_count += 1
-                # total_count += 1
                 print('============================================================')
             
-            # Save New APPS Data
+            # Push New APPS Data to HF
             new_apps_dataset = Dataset.from_list(new_apps_data)
-            new_apps_dataset.push_to_hub("Elfsong/APPS", 'verified', split=f"{i}_{(i+1)}")
-            
-            # print(f"Total: {total_count}, Passed: {passed_count}, Pass@1: {passed_count/total_count:.2f}")
+            new_apps_dataset.push_to_hub("Elfsong/APPS_New", 'verified', split=f"{i}_{(i+1)}")
             
 
 if __name__ == "__main__":
-    evaluator = AppsEvaluator(model_name="gpt-4o")
+    evaluator = AppsEvaluator(monolith_retries=3, monolith_timeout=60, case_multiply=1024, number_of_workers=32)
     evaluator.apps_pipeline()
