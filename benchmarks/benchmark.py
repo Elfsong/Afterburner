@@ -102,7 +102,7 @@ class Benchmark:
         self.api_key = os.getenv('API_KEY')
         self.model_client = OpenAI(api_key=self.api_key)
         self.logger = logger.getChild(self.dataset_name)
-        self.logger.info(f"[+] Initialized Benchmark for dataset [{dataset_name}].")
+        self.logger.info(f"[+] Initialized APPS Benchmark -> Dataset: [{dataset_name}] | Model: [{model_name}] | Case Multiply: [{case_multiply}] | Enable Replay: [{enable_replay}]")
         
     def inference(self, instance) -> Any:
         raise NotImplementedError("Method 'inference' must be implemented.")
@@ -238,6 +238,5 @@ class MercuryBenchmark(Benchmark):
         return 0.0
     
 if __name__ == '__main__':
-    apps_benchmark = APPSBenchmark("apps_verified", 'o3-mini')
-    
+    apps_benchmark = APPSBenchmark("apps_verified", 'o3-mini', case_multiply=512, enable_replay=False)
     apps_benchmark.eval()
