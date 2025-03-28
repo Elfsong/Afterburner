@@ -94,9 +94,11 @@ if __name__ == '__main__':
 """
 
 class Benchmark:
-    def __init__(self, dataset_name, model_name) -> None:
+    def __init__(self, dataset_name, model_name, case_multiply=1, enable_replay=False) -> None:
         self.model_name = model_name
         self.dataset_name = dataset_name
+        self.case_multiply = case_multiply
+        self.enable_replay = enable_replay
         self.api_key = os.getenv('API_KEY')
         self.model_client = OpenAI(api_key=self.api_key)
         self.logger = logger.getChild(self.dataset_name)
@@ -112,14 +114,12 @@ class Benchmark:
         raise NotImplementedError("Method 'eval' must be implemented.")
     
 class APPSBenchmark(Benchmark):
-    def __init__(self, dataset_name, model_name) -> None:
+    def __init__(self, dataset_name, model_name, case_multiply=1, enable_replay=False) -> None:
         super().__init__(dataset_name, model_name)
         
         # Load the dataset
         self.logger.info(f"[+] Loading dataset [{self.dataset_name}]...")
         self.ds = load_dataset("Elfsong/apps_verified", "default")['train']
-        self.case_multiply = 512
-        self.enable_replay = False
         
     def instance_inference(self, instance) -> Any:        
         prompt = APPS_INFER_TEMPLATE.format(problem_content=instance['problem_content'], code_prompt=instance['code_prompt'])
