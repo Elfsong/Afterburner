@@ -119,7 +119,7 @@ class AppsEvaluator:
             return response
     
     def apps_pipeline(self):
-        for i in range(100):
+        for i in range(6, 100):
             print(f'[+] Processing Test Set: [{i}% - {(i+1)}%]')
             apps_data = load_dataset("Elfsong/APPS", 'default', split=f"test[{i}%:{(i+1)}%]")        
             new_apps_data = list()
@@ -145,7 +145,6 @@ class AppsEvaluator:
                     if queue_size == 0:
                         break
                     time.sleep(5)
-                    
                 
                 # Parallel Evaluation
                 results = list()
