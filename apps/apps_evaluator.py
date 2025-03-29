@@ -3,17 +3,14 @@
 # Author: Du Mingzhe (mingzhe@nus.edu.sg)
 # Date: 2025-03-19
 
-import re
-import os
+
 import time
 import json
 import textwrap
 from tqdm import tqdm
 from typing import List
-from openai import OpenAI
+from tabulate import tabulate
 from monolith import monolith
-# from multiprocessing import Pool
-from collections import OrderedDict
 from datasets import load_dataset, Dataset
 from multiprocessing.dummy import Pool as ThreadPool
 
@@ -154,9 +151,27 @@ class AppsEvaluator:
                             results.append(result)
                             pbar.update(1)
                 
-                # Detailed Results Display
+                # # Detailed Results Display
+                # for result in results:
+                #     print(f"[-] Passed: {'🟢' if result['passed'] else '🔴'} \t Status: {result['status']} \t\t Time: {result['time']:.2f} ms \t Memory: {result['memory']:.2f} KB \t Integral: {result['integral']:.2f}")
+                
+                # Prepare the table header
+                headers = ["Passed", "Status", "Time (ms)", "Memory (kb)", "Integral (ms * kb)"]
+
+                # Build the table rows based on your results
+                table = []
                 for result in results:
-                    print(f"[-] Passed: {'🟢' if result['passed'] else '🔴'} \t Status: {result['status']} \t\t Time: {result['time']:.2f} ms \t Memory: {result['memory']:.2f} KB \t Integral: {result['integral']:.2f}")
+                    row = [
+                        '🟢' if result['passed'] else '🔴',
+                        result['status'],
+                        f"{result['time']:.2f}",
+                        f"{result['memory']:.2f}",
+                        f"{result['integral']:.2f}"
+                    ]
+                    table.append(row)
+
+                # Print the formatted table
+                print(tabulate(table, headers=headers, tablefmt="grid"))
                 
                 # Verify Solutions
                 verified_solutions = list()
@@ -189,5 +204,5 @@ class AppsEvaluator:
             
 
 if __name__ == "__main__":
-    evaluator = AppsEvaluator(monolith_retries=3, monolith_timeout=60, case_multiply=1024, number_of_workers=32)
+    evaluator = AppsEvaluator(monolith_retries=3, monolith_timeout=90, case_multiply=1024, number_of_workers=32)
     evaluator.apps_pipeline()
