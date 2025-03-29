@@ -176,15 +176,14 @@ class AppsEvaluator:
                 # Verify Solutions
                 verified_solutions = list()
                 for (solution, result) in zip(solutions, results):
-                    if result['passed']:
-                        verified_solutions.append({
-                            'code': solution, 
-                            'status': str(result['status']),
-                            'passed': bool(result['passed']),
-                            'time': float(result['time']),
-                            'memory': float(result['memory']),
-                            'integral': float(result['integral'])
-                        })
+                    verified_solutions.append({
+                        'code': solution, 
+                        'status': str(result['status']),
+                        'passed': bool(result['passed']),
+                        'time': float(result['time']),
+                        'memory': float(result['memory']),
+                        'integral': float(result['integral'])
+                    })
                         
                 # Save New APPS Data
                 new_apps_data.append({
