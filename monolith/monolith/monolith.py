@@ -42,3 +42,10 @@ class Monolith:
     def get_status(self) -> dict:
         response = self.session.get(f'{self.backend_url}/status')
         return response.json()
+    
+    def clean(self, result_limit=0) -> dict:
+        response = self.session.delete(f'{self.backend_url}/clean/{result_limit}')
+        return response.json()
+    
+# python setup.py sdist
+# twine upload dist/*

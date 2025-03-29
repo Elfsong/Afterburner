@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="monolith_lib",
-    version="0.0.6",
+    version="0.0.8",
     author="Du Mingzhe",
     author_email="dumingzhex@gmail.com",
     description="A code execution engine",

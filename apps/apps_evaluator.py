@@ -116,7 +116,9 @@ class AppsEvaluator:
             return response
     
     def apps_pipeline(self):
-        for i in range(7, 100):
+        monolith_client = monolith.Monolith(backend_url='https://monolith.cool', retries=3)
+        
+        for i in range(11, 100):
             print(f'[+] Processing Test Set: [{i}% - {(i+1)}%]')
             apps_data = load_dataset("Elfsong/APPS", 'default', split=f"test[{i}%:{(i+1)}%]")        
             new_apps_data = list()
@@ -137,7 +139,6 @@ class AppsEvaluator:
                 
                 # Check Monolith Status
                 while True:
-                    monolith_client = monolith.Monolith(backend_url='https://monolith.cool', retries=3)
                     queue_size = monolith_client.get_status().get('current_queue_size', -1)
                     if queue_size == 0:
                         break
@@ -150,10 +151,9 @@ class AppsEvaluator:
                         for result in pool.imap(apps_evaluation_unpacker, test_packs):
                             results.append(result)
                             pbar.update(1)
-                
-                # # Detailed Results Display
-                # for result in results:
-                #     print(f"[-] Passed: {'🟢' if result['passed'] else '🔴'} \t Status: {result['status']} \t\t Time: {result['time']:.2f} ms \t Memory: {result['memory']:.2f} KB \t Integral: {result['integral']:.2f}")
+                            
+                # Cleanup Monolith Queue
+                monolith_client.clean()
                 
                 # Prepare the table header
                 headers = ["Passed", "Status", "Time (ms)", "Memory (kb)", "Integral (ms * kb)"]
@@ -166,7 +166,7 @@ class AppsEvaluator:
                         result['status'],
                         f"{result['time']:.2f}",
                         f"{result['memory']:.2f}",
-                        f"{result['integral']:.2f}"
+                        f"{str(result['integral'])}"
                     ]
                     table.append(row)
 
