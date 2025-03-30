@@ -7,6 +7,7 @@
 import time
 import json
 import textwrap
+import autoimport
 from tqdm import tqdm
 from typing import List
 from tabulate import tabulate
@@ -90,6 +91,7 @@ class AppsEvaluator:
             solution_code = textwrap.indent(solution_code.strip(), "\t")
             test_case_list_str = json.dumps(test_cases, indent=4)
             test_code = TEMPLATE.format(solution_code=solution_code, test_case_list=test_case_list_str, case_multiply=100)
+            test_code = autoimport.fix_code(test_code)
             
             # Submit Test Code to Monolith
             task_id = monolith_client.post_code_submit(lang="python", libs=[], code=test_code, timeout=timeout, profiling=True)["task_id"]
@@ -119,7 +121,7 @@ class AppsEvaluator:
     def apps_pipeline(self):
         monolith_client = monolith.Monolith(backend_url='https://monolith.cool', retries=3)
         
-        for i in range(11, 100):
+        for i in range(74, 100):
             print(f'[+] Processing Test Set: [{i}% - {(i+1)}%]')
             apps_data = load_dataset("Elfsong/APPS", 'default', split=f"test[{i}%:{(i+1)}%]")        
             new_apps_data = list()
@@ -136,7 +138,7 @@ class AppsEvaluator:
                 # Prepare Test Packs (add code_prompt to each solution)
                 test_packs = [(code_prompt + '\n' + solution, test_cases, self.monolith_timeout) for solution in solutions]
                 
-                print(f'[+] Problem {problem_id} [{index}/{total_count}]')
+                print(f'[+] Problem {problem_id} [{index}/{total_count}] in [{i}% - {(i+1)}%] - {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}')
                 
                 # Check Monolith Status
                 while True:
@@ -169,7 +171,7 @@ class AppsEvaluator:
                     table.append(row)
 
                 # Print the formatted table
-                print(tabulate(table, headers=headers, tablefmt="grid"))
+                print(tabulate(table, headers=headers, tablefmt="fancy_outline"))
                 
                 # Verify Solutions
                 verified_solutions = list()
@@ -201,5 +203,5 @@ class AppsEvaluator:
             
 
 if __name__ == "__main__":
-    evaluator = AppsEvaluator(monolith_retries=3, monolith_timeout=90, case_multiply=1024, number_of_workers=32)
+    evaluator = AppsEvaluator(monolith_retries=3, monolith_timeout=90, case_multiply=1024, number_of_workers=64)
     evaluator.apps_pipeline()
