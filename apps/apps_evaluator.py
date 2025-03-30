@@ -152,9 +152,6 @@ class AppsEvaluator:
                         for result in pool.imap(apps_evaluation_unpacker, test_packs):
                             results.append(result)
                             pbar.update(1)
-                            
-                # Cleanup Monolith Queue
-                monolith_client.clean()
                 
                 # Prepare the table header
                 headers = ["Passed", "Status", "Time (ms)", "Memory (kb)", "Integral (ms * kb)"]

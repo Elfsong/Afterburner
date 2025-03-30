@@ -69,9 +69,14 @@ if __name__ == '__main__':
         print("Failed")
 """
 
+def venus_evaluation_unpacker(args):
+    return VenusEvaluator.venus_evaluation(*args)
+
 class VenusEvaluator:
-    def __init__(self, lang) -> None:
+    def __init__(self, lang, number_of_workers, monolith_timeout) -> None:
         self.lang = lang
+        self.number_of_workers = number_of_workers
+        self.monolith_timeout = monolith_timeout
 
     @classmethod
     def venus_evaluation(cls, solution_code: str, instance: Any, timeout: int) -> dict:
@@ -118,25 +123,103 @@ class VenusEvaluator:
             return response
 
     def venus_pipeline(self):
-        # Load the dataset
-        leetcode_dataset = load_dataset("Elfsong/leetcode_data", split="train")
+        monolith_client = monolith.Monolith(backend_url='https://monolith.cool', retries=3)
 
-        for instance in tqdm(leetcode_dataset):
-            problem_id = instance['problem_id']
-            print(f"Processing Problem [{problem_id}]...")
+        # Load the datasets
+        venus_dataset = load_dataset("Elfsong/Venus", "python3", split="train")
 
-            # Prepare the solution code
-            solution_list = list()
+        venus_dict = dict()
+        for instance in venus_dataset:
+            problem_id = int(instance['question_id'])
+            venus_dict[problem_id] = instance
+        
+        for i in range(100):
+            print(f'[+] Processing Range: [{i}% - {(i+1)}%]')
+            leetcode_dataset = load_dataset("Elfsong/leetcode_data", split="train[{i}%:{(i+1)}%]")
 
-            # Example Solutions
-            for solution in instance['solutions'][self.lang]:
-                solution_list.append(solution)
+            new_leetcode_data = list()
 
-            for solution in solution_list:
-                result = self.venus_evaluation(solution, instance, timeout=90)
-                print(result)
+            for index, instance in enumerate(leetcode_dataset):
+                problem_id = instance['problem_id']
+                print(f"Processing Problem [{problem_id}]...")
+
+                # Prepare the solution code
+                solution_list = list()
+
+                # Example Solutions
+                if 'solutions' in instance and self.lang in instance['solutions'] and instance['solutions'][self.lang]:
+                    for solution in instance['solutions'][self.lang]:
+                        solution_list.append(solution)
+                
+                # Human Solutions
+                if problem_id in venus_dict:
+                    rt_list = venus_dict[problem_id]['rt_list']
+                    mm_list = venus_dict[problem_id]['mm_list']
+                    for solution in rt_list + mm_list:
+                        solution_list.append(solution['code'])
+
+                # Prepare Test Packs (add code_prompt to each solution)
+                test_packs = [(solution, instance, self.monolith_timeout) for solution in solution_list]
+
+                print(f'[+] Problem {problem_id} [{index}/{len(leetcode_dataset)}]')
+                    
+                # Check Monolith Status
+                while True:
+                    queue_size = monolith_client.get_status().get('current_queue_size', -1)
+                    if queue_size == 0:
+                        break
+                    time.sleep(5)
+
+                # Parallel Evaluation
+                results = list()
+                with ThreadPool(self.number_of_workers) as pool:
+                    with tqdm(total=len(test_packs), desc='Solution Evaluation') as pbar:
+                        for result in pool.imap(venus_evaluation_unpacker, test_packs):
+                            results.append(result)
+                            pbar.update(1)
+                
+                # Prepare the table header
+                headers = ["Passed", "Status", "Time (ms)", "Memory (kb)", "Integral (ms * kb)"]
+
+                # Build the table rows based on your results
+                table = []
+                for result in results:
+                    row = [
+                        '🟢' if result['passed'] else '🔴',
+                        result['status'],
+                        f"{result['time']:.2f}",
+                        f"{result['memory']:.2f}",
+                        f"{str(result['integral'])}"
+                    ]
+                    table.append(row)
+
+                # Print the formatted table
+                print(tabulate(table, headers=headers, tablefmt="grid"))
+
+                # Verify Solutions
+                verified_solutions = list()
+                for (solution, result) in zip(solution_list, results):
+                    verified_solutions.append({
+                        'code': solution, 
+                        'status': str(result['status']),
+                        'passed': bool(result['passed']),
+                        'time': float(result['time']),
+                        'memory': float(result['memory']),
+                        'integral': float(result['integral'])
+                    })
+                
+                # Save New APPS Data
+                new_leetcode_data.append({
+                    # TODO (mingzhedu): Add more fields
+                })
+            
+                print('============================================================')
+
+            # Push New Data to HF
+            new_apps_dataset = Dataset.from_list(new_leetcode_data)
+            new_apps_dataset.push_to_hub("Elfsong/Venus_python", 'verified', split=f"{i}_{(i+1)}")
 
 
 if __name__ == "__main__":
-    venus_evaluator = VenusEvaluator(lang="python3")
+    venus_evaluator = VenusEvaluator(lang="python3", number_of_workers=48, monolith_timeout=90)
     venus_evaluator.venus_pipeline()
