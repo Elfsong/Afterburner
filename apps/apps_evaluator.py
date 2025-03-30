@@ -74,7 +74,7 @@ class AppsEvaluator:
         self.number_of_workers = number_of_workers
     
     @classmethod
-    def apps_evaluation(cls, solution_code: str, test_cases: List, timeout: int) -> bool:
+    def apps_evaluation(cls, solution_code: str, test_cases: List, timeout: int) -> dict:
         response = {
             'passed': False, 
             'time': float('inf'), 
@@ -109,9 +109,8 @@ class AppsEvaluator:
                 response['integral'] = result['output_dict']['integral']
 
             response['status'] = result['status']
-
         except Exception as e:
-            print(f"Evaluation Error: {e}", e.with_traceback())
+            print(f"Evaluation Error: {e}", e.with_traceback(None))
         finally:
             return response
     
