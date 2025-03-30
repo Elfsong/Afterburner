@@ -19,6 +19,8 @@ TEMPLATE = """import io
 import sys
 import unittest
 
+
+# Placeholder for the running solution.
 def running_solution():
 {solution_code}
 
@@ -28,13 +30,13 @@ class TestSolution(unittest.TestCase):
         backup_stdout = sys.stdout
         try:
             sys.stdin = io.StringIO(input_data)
-            output_catcher = io.StringIO()
-            sys.stdout = output_catcher
+            captured_output = io.StringIO()
+            sys.stdout = captured_output
 
             running_solution()
 
-            output_catcher.seek(0)
-            return output_catcher.read()
+            captured_output.seek(0)
+            return captured_output.read()
         finally:
             sys.stdin = backup_stdin
             sys.stdout = backup_stdout
@@ -42,12 +44,12 @@ class TestSolution(unittest.TestCase):
 def make_test_function(input_data, expected):
 {test_case_evaluator}
 
-    def test(self):
+    def test_method(self):
         actual = self.run_io_fun(input_data)
         passed = evaluate(expected, actual)
-        self.assertEqual(passed, True)
+        self.assertTrue(passed)
 
-    return test
+    return test_method
 
 test_case_list = {test_case_list}
 test_case_list = test_case_list * {case_multiply}
