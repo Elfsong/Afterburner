@@ -102,14 +102,16 @@ class AppsEvaluator:
                     break
             
             # Check if Test Code Passed
+            response['status'] = result['status']
+
+            # Update Response
             if result["status"] == "done":
                 response['passed'] = True if result['output_dict']['stdout'] == 'Success\n' else False
                 response['time'] = result['output_dict']['duration']
                 response['memory'] = result['output_dict']['peak_memory']
                 response['integral'] = result['output_dict']['integral']
-
-            response['status'] = result['status']
         except Exception as e:
+            response['status'] = 'error'
             print(f"Evaluation Error: {e}", e.with_traceback(None))
         finally:
             return response
