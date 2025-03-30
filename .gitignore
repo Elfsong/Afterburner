@@ -10,3 +10,4 @@ grpo/wandb/*
 wandb/*
 data/*
 benchmarks/benchmark.log
+.vscode/*

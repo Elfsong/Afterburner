@@ -7,10 +7,11 @@
 import time
 import json
 import textwrap
+import autoimport
 from tqdm import tqdm
-from typing import Any, List, final
 from tabulate import tabulate
 from monolith import monolith
+from typing import Any, List, final
 from datasets import load_dataset, Dataset
 from multiprocessing.dummy import Pool as ThreadPool
 
@@ -18,7 +19,7 @@ TEMPLATE = """import io
 import sys
 import unittest
 
-def solution():
+def running_solution():
 {solution_code}
 
 class TestSolution(unittest.TestCase):
@@ -30,7 +31,7 @@ class TestSolution(unittest.TestCase):
             output_catcher = io.StringIO()
             sys.stdout = output_catcher
 
-            solution()
+            running_solution()
 
             output_catcher.seek(0)
             return output_catcher.read()
@@ -40,7 +41,13 @@ class TestSolution(unittest.TestCase):
 
 def make_test_function(input_data, expected):
 {test_case_evaluator}
-    return evaluate
+
+    def test(self):
+        actual = self.run_io_fun(input_data)
+        passed = evaluate(expected, actual)
+        self.assertEqual(passed, True)
+
+    return test
 
 test_case_list = {test_case_list}
 test_case_list = test_case_list * {case_multiply}
@@ -71,16 +78,17 @@ class VenusEvaluator:
             monolith_client = monolith.Monolith(backend_url='https://monolith.cool', retries=3)
 
             # Construct Test Code
-            test_case_evaluator = instance['test_case_evaluator']
+            test_case_evaluator = instance['test_case_evaluator'].strip()
             test_case_runners = instance['test_case_runners']
-            test_cases = instance['test_cases']
+            test_cases = json.loads(instance['test_cases'])
 
-            solution_code = test_case_runners['python3'].replace('==Code Submission==', solution_code)
-            solution_code = textwrap.indent(solution_code.strip(), "\t")
-            tese_case_evaluator = textwrap.indent(test_case_evaluator.strip(), "\t")
+            solution_code = test_case_runners['python3'].replace('==Code Submission==', solution_code.strip())
+            solution_code = textwrap.indent(solution_code.strip(), "    ")
+            test_case_evaluator = textwrap.indent(test_case_evaluator, "    ")
             test_case_list_str = json.dumps(test_cases, indent=4)
 
-            test_code = TEMPLATE.format(solution_code=solution_code, tese_case_evaluator=tese_case_evaluator, test_case_list=test_case_list_str, case_multiply=100)
+            test_code = TEMPLATE.format(solution_code=solution_code, test_case_evaluator=test_case_evaluator, test_case_list=test_case_list_str, case_multiply=100)
+            test_code = autoimport.fix_code(test_code)
 
             # Submit Test Code to Monolith
             task_id = monolith_client.post_code_submit(lang="python", libs=[], code=test_code, timeout=timeout, profiling=True)["task_id"]
@@ -102,6 +110,7 @@ class VenusEvaluator:
                 response['integral'] = result['output_dict']['integral']
             
         except Exception as e:
+            print("Evaluation Error: ", e)
             response['status'] = 'error'
         finally:
             return response
@@ -127,5 +136,5 @@ class VenusEvaluator:
 
 
 if __name__ == "__main__":
-    venus_evaluator = VenusEvaluator(lang="python")
+    venus_evaluator = VenusEvaluator(lang="python3")
     venus_evaluator.venus_pipeline()
