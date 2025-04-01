@@ -7,7 +7,6 @@
 import time
 import json
 import textwrap
-import autoimport
 from tqdm import tqdm
 from typing import List
 from tabulate import tabulate

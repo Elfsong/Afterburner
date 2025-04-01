@@ -6,8 +6,8 @@
 
 import time
 import json
+import logging
 import textwrap
-import autoimport
 from tqdm import tqdm
 from tabulate import tabulate
 from monolith import monolith
@@ -16,8 +16,26 @@ from datasets import load_dataset, Dataset
 from multiprocessing.dummy import Pool as ThreadPool
 
 TEMPLATE = """import io
+import re
+import itertools
+import collections
+import heapq
+import bisect
+import string
 import sys
+import functools
+import math
+import copy
 import unittest
+
+from math import floor, ceil, factorial, sqrt, inf
+from sys import maxsize, stdin
+from bisect import bisect_left, bisect_right
+from itertools import permutations, zip_longest
+from heapq import heappush, heappop, heapify
+from collections import deque, defaultdict, OrderedDict
+from typing import List, Optional, Tuple
+from functools import lru_cache, cache
 
 
 # Placeholder for the running solution.
@@ -73,13 +91,15 @@ def venus_evaluation_unpacker(args):
     return VenusEvaluator.venus_evaluation(*args)
 
 class VenusEvaluator:
-    def __init__(self, lang, number_of_workers, monolith_timeout) -> None:
+    def __init__(self, lang, number_of_workers, case_multiply, monolith_timeout) -> None:
         self.lang = lang
-        self.number_of_workers = number_of_workers
+        self.case_multiply = case_multiply
         self.monolith_timeout = monolith_timeout
+        self.number_of_workers = number_of_workers
+        
 
     @classmethod
-    def venus_evaluation(cls, solution_code: str, instance: Any, timeout: int) -> dict:
+    def venus_evaluation(cls, solution_code: str, instance: Any, case_multiply: int, timeout: int) -> dict:
         response = {'passed': False, 'time': float('inf'), 'memory': float('inf'), 'integral': float('inf'), 'status': 'error'}
         try:
             monolith_client = monolith.Monolith(backend_url='https://monolith.cool', retries=3)
@@ -94,8 +114,7 @@ class VenusEvaluator:
             test_case_evaluator = textwrap.indent(test_case_evaluator, "    ")
             test_case_list_str = json.dumps(test_cases, indent=4)
 
-            test_code = TEMPLATE.format(solution_code=solution_code, test_case_evaluator=test_case_evaluator, test_case_list=test_case_list_str, case_multiply=100)
-            test_code = autoimport.fix_code(test_code)
+            test_code = TEMPLATE.format(solution_code=solution_code, test_case_evaluator=test_case_evaluator, test_case_list=test_case_list_str, case_multiply=case_multiply)
 
             # Submit Test Code to Monolith
             task_id = monolith_client.post_code_submit(lang="python", libs=[], code=test_code, timeout=timeout, profiling=True)["task_id"]
@@ -118,6 +137,7 @@ class VenusEvaluator:
             
         except Exception as e:
             print("Evaluation Error: ", e)
+            print(logging.exception(e))
             response['status'] = 'error'
         finally:
             return response
@@ -135,13 +155,18 @@ class VenusEvaluator:
         
         for i in range(100):
             print(f'[+] Processing Range: [{i}% - {(i+1)}%]')
-            leetcode_dataset = load_dataset("Elfsong/leetcode_data", split="train[{i}%:{(i+1)}%]")
+            leetcode_dataset = load_dataset("Elfsong/leetcode_data", split=f"train[{i}%:{(i+1)}%]")
 
             new_leetcode_data = list()
 
             for index, instance in enumerate(leetcode_dataset):
                 problem_id = instance['problem_id']
                 print(f"Processing Problem [{problem_id}]...")
+
+                # Instance Check
+                if not instance['test_case_runners']: continue
+                if not instance['test_case_runners']['python3']: continue
+                if not instance['test_case_evaluator']: continue
 
                 # Prepare the solution code
                 solution_list = list()
@@ -159,14 +184,14 @@ class VenusEvaluator:
                         solution_list.append(solution['code'])
 
                 # Prepare Test Packs (add code_prompt to each solution)
-                test_packs = [(solution, instance, self.monolith_timeout) for solution in solution_list]
+                test_packs = [(solution, instance, self.case_multiply, self.monolith_timeout) for solution in solution_list]
 
-                print(f'[+] Problem {problem_id} [{index}/{len(leetcode_dataset)}]')
+                print(f'[+] Problem {problem_id} [{index}/{len(leetcode_dataset)}] in [{i}% - {(i+1)}%] - {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}')
                     
                 # Check Monolith Status
                 while True:
-                    queue_size = monolith_client.get_status().get('current_queue_size', -1)
-                    if queue_size == 0:
+                    monolith_queue_size = monolith_client.get_status().get('current_queue_size', -1)
+                    if monolith_queue_size == 0:
                         break
                     time.sleep(5)
 
@@ -194,7 +219,7 @@ class VenusEvaluator:
                     table.append(row)
 
                 # Print the formatted table
-                print(tabulate(table, headers=headers, tablefmt="grid"))
+                print(tabulate(table, headers=headers, tablefmt="fancy_outline"))
 
                 # Verify Solutions
                 verified_solutions = list()
@@ -209,17 +234,17 @@ class VenusEvaluator:
                     })
                 
                 # Save New APPS Data
-                new_leetcode_data.append({
-                    # TODO (mingzhedu): Add more fields
-                })
+                instance['verified_solutions'] = dict()
+                instance['verified_solutions'][self.lang] = verified_solutions
+                new_leetcode_data.append(instance)
             
                 print('============================================================')
 
             # Push New Data to HF
-            new_apps_dataset = Dataset.from_list(new_leetcode_data)
-            new_apps_dataset.push_to_hub("Elfsong/Venus_python", 'verified', split=f"{i}_{(i+1)}")
+            new_leetcode_dataset = Dataset.from_list(new_leetcode_data)
+            new_leetcode_dataset.push_to_hub("Elfsong/Venus_python", 'verified', split=f"{i}_{(i+1)}")
 
 
 if __name__ == "__main__":
-    venus_evaluator = VenusEvaluator(lang="python3", number_of_workers=48, monolith_timeout=90)
+    venus_evaluator = VenusEvaluator(lang="python3", number_of_workers=48, case_multiply=64, monolith_timeout=90)
     venus_evaluator.venus_pipeline()
