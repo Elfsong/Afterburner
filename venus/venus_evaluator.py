@@ -6,6 +6,7 @@
 
 import time
 import json
+import random
 import logging
 import textwrap
 from tqdm import tqdm
@@ -183,7 +184,11 @@ class VenusEvaluator:
                     for solution in rt_list + mm_list:
                         solution_list.append(solution['code'])
 
+                # Solution Deduplication
+                solution_list = list(set(solution_list))
+
                 # Prepare Test Packs (add code_prompt to each solution)
+                solution_list = random.sample(solution_list, min(500, len(solution_list))) # remove it later
                 test_packs = [(solution, instance, self.case_multiply, self.monolith_timeout) for solution in solution_list]
 
                 print(f'[+] Problem {problem_id} [{index}/{len(leetcode_dataset)}] in [{i}% - {(i+1)}%] - {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}')
@@ -234,9 +239,20 @@ class VenusEvaluator:
                     })
                 
                 # Save New APPS Data
-                instance['verified_solutions'] = dict()
-                instance['verified_solutions'][self.lang] = verified_solutions
-                new_leetcode_data.append(instance)
+                new_instance = {
+                    "problem_id": int(instance['problem_id']),
+                    "title": str(instance['title']),
+                    "question_content": str(instance['question_content']),
+                    "difficulty": str(instance['difficulty']),
+                    "tags": list(instance['tags']),
+                    "code_prompt": str(instance['code_prompt']['python3']),
+                    "test_case_generator": str(instance['test_case_generator']),
+                    "test_case_evaluator": str(instance['test_case_evaluator']),
+                    "test_case_runners": str(instance['test_case_runners']["python3"]),
+                    "test_cases": str(instance['test_cases']),
+                    "solutions": verified_solutions
+                }
+                new_leetcode_data.append(new_instance)
             
                 print('============================================================')
 
