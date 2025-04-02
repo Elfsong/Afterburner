@@ -154,7 +154,7 @@ class VenusEvaluator:
             problem_id = int(instance['question_id'])
             venus_dict[problem_id] = instance
         
-        for i in range(100):
+        for i in range(5, 100):
             print(f'[+] Processing Range: [{i}% - {(i+1)}%]')
             leetcode_dataset = load_dataset("Elfsong/leetcode_data", split=f"train[{i}%:{(i+1)}%]")
 
@@ -258,7 +258,7 @@ class VenusEvaluator:
 
             # Push New Data to HF
             new_leetcode_dataset = Dataset.from_list(new_leetcode_data)
-            new_leetcode_dataset.push_to_hub("Elfsong/Venus_python", 'verified', split=f"{i}_{(i+1)}")
+            new_leetcode_dataset.push_to_hub("Elfsong/Venus_python", 'verified', split=f"{i}_{(i+1)}", private=True)
 
 
 if __name__ == "__main__":
