@@ -97,13 +97,13 @@ class VenusEvaluator:
         self.case_multiply = case_multiply
         self.monolith_timeout = monolith_timeout
         self.number_of_workers = number_of_workers
-        
+        self.monolith_client = monolith.Monolith(backend_url='https://monolith.cool', retries=3)
 
     @classmethod
     def venus_evaluation(cls, solution_code: str, instance: Any, case_multiply: int, timeout: int) -> dict:
         response = {'passed': False, 'time': float('inf'), 'memory': float('inf'), 'integral': float('inf'), 'status': 'error'}
         try:
-            monolith_client = monolith.Monolith(backend_url='https://monolith.cool', retries=3)
+            monolith_client = monolith.Monolith(backend_url='https://monolith.cool', retries=2)
 
             # Construct Test Code
             test_case_evaluator = instance['test_case_evaluator'].strip()
@@ -143,9 +143,7 @@ class VenusEvaluator:
         finally:
             return response
 
-    def venus_pipeline(self):
-        monolith_client = monolith.Monolith(backend_url='https://monolith.cool', retries=3)
-
+    def venus_distribution_pipeline(self):
         # Load the datasets
         venus_dataset = load_dataset("Elfsong/Venus", "python3", split="train")
 
@@ -195,7 +193,7 @@ class VenusEvaluator:
                     
                 # Check Monolith Status
                 while True:
-                    monolith_queue_size = monolith_client.get_status().get('current_queue_size', -1)
+                    monolith_queue_size = self.monolith_client.get_status().get('current_queue_size', -1)
                     if monolith_queue_size == 0:
                         break
                     time.sleep(5)
@@ -260,7 +258,11 @@ class VenusEvaluator:
             new_leetcode_dataset = Dataset.from_list(new_leetcode_data)
             new_leetcode_dataset.push_to_hub("Elfsong/Venus_python", 'verified', split=f"{i}_{(i+1)}", private=True)
 
+    def venus_evalution_pipeline(self, model_name, k=1):
+        # Load the datasets
+        venus_dataset = load_dataset("Elfsong/Venus", "python3", split="train")
+        
 
 if __name__ == "__main__":
-    venus_evaluator = VenusEvaluator(lang="python3", number_of_workers=72, case_multiply=64, monolith_timeout=90)
-    venus_evaluator.venus_pipeline()
+    venus_evaluator = VenusEvaluator(lang="python3", number_of_workers=48, case_multiply=64, monolith_timeout=90)
+    venus_evaluator.venus_distribution_pipeline()

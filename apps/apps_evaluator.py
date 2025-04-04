@@ -8,7 +8,7 @@ import time
 import json
 import textwrap
 from tqdm import tqdm
-from typing import List
+from typing import Any, List
 from tabulate import tabulate
 from monolith import monolith
 from datasets import load_dataset, Dataset
@@ -72,6 +72,7 @@ class AppsEvaluator:
         self.monolith_timeout = monolith_timeout
         self.case_multiply = case_multiply
         self.number_of_workers = number_of_workers
+        self.monolith_client = monolith.Monolith(backend_url='https://monolith.cool', retries=3)
     
     @classmethod
     def apps_evaluation(cls, solution_code: str, test_cases: List, timeout: int) -> dict:
@@ -116,10 +117,22 @@ class AppsEvaluator:
         finally:
             return response
     
-    def apps_pipeline(self):
-        monolith_client = monolith.Monolith(backend_url='https://monolith.cool', retries=3)
+    @classmethod
+    def apps_generation(cls, instance: Any, model_name: str, temperature: float) -> dict:
+        pass
+    
+    def apps_evaluation_pipeline(self, model_name, k=1):
+        print(f'[+] Loading Model: {model_name}')
         
-        for i in range(87, 100):
+        print(f'[+] Loading Dataset: Elfsong/APPS_Verfied')
+        ds = load_dataset("Elfsong/APPS_Verfied", split="train")
+        
+        for instance in ds:
+            print(instance['problem_id'])
+
+    
+    def apps_distribution_pipeline(self):
+        for i in range(100):
             apps_data = load_dataset("Elfsong/APPS", 'default', split=f"test[{i}%:{(i+1)}%]")        
             new_apps_data = list()
             
@@ -139,7 +152,7 @@ class AppsEvaluator:
                 
                 # Check Monolith Status
                 while True:
-                    queue_size = monolith_client.get_status().get('current_queue_size', -1)
+                    queue_size = self.monolith_client.get_status().get('current_queue_size', -1)
                     if queue_size == 0:
                         break
                     time.sleep(5)
@@ -201,4 +214,6 @@ class AppsEvaluator:
 
 if __name__ == "__main__":
     evaluator = AppsEvaluator(monolith_retries=3, monolith_timeout=90, case_multiply=1024, number_of_workers=48)
-    evaluator.apps_pipeline()
+    # evaluator.apps_distribution_pipeline()
+    
+    evaluator.apps_evaluation_pipeline(model_name="Elfsong/CodeGen-16B-mono",k=1)
