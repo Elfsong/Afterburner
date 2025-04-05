@@ -17,7 +17,7 @@ from typing import Any, List, final
 from datasets import load_dataset, Dataset
 from multiprocessing.dummy import Pool as ThreadPool
 
-TEMPLATE = """import io
+EVALUATION_TEMPLATE = """import io
 import re
 import itertools
 import collections
@@ -89,6 +89,24 @@ if __name__ == '__main__':
         print("Failed")
 """
 
+GENERATION_TEMPLATE = """
+## Instructions
+You are an expert competitive programmer who excels at solving algorithm problems in multiple programming languages.
+Your task is to implement a solution to the following problem in {target_lang}.
+
+## Problem Description
+{question}
+
+## Starter Code
+{wrap_code_block(target_lang, starter_code)}
+
+## Output Format
+- Provide the complete solution code in **one markdown code block** with appropriate language identifier.
+- Implement the function with the exact signature (name, parameters, etc.) specified in the starter code.
+- EXCLUDE ALL explanations, code comments, import/package/library statements, additional classes or functions outside of the starter code scope, or starting code like `if __name__ == "__main__":` or `func main()` or `package main` or `using namespace std;`.
+- Use but do not redefine any helper data structures provided in the starter code (even if commented out).
+"""
+
 def venus_evaluation_unpacker(args):
     return VenusEvaluator.venus_evaluation(*args)
 
@@ -116,7 +134,7 @@ class VenusEvaluator:
             test_case_evaluator = textwrap.indent(test_case_evaluator, "    ")
             test_case_list_str = json.dumps(test_cases, indent=4)
 
-            test_code = TEMPLATE.format(solution_code=solution_code, test_case_evaluator=test_case_evaluator, test_case_list=test_case_list_str, case_multiply=case_multiply)
+            test_code = EVALUATION_TEMPLATE.format(solution_code=solution_code, test_case_evaluator=test_case_evaluator, test_case_list=test_case_list_str, case_multiply=case_multiply)
 
             # Submit Test Code to Monolith
             monolith_response = monolith_client.post_code_submit(lang="python", libs=[], code=test_code, timeout=timeout, profiling=True)
@@ -145,6 +163,9 @@ class VenusEvaluator:
         finally:
             return response
 
+    def venus_generation(self, instance: Any, target_lang: str) -> str:
+        pass
+    
     def venus_distribution_pipeline(self):
         # Load the datasets
         venus_dataset = load_dataset("Elfsong/Venus", "python3", split="train")
@@ -154,7 +175,7 @@ class VenusEvaluator:
             problem_id = int(instance['question_id'])
             venus_dict[problem_id] = instance
         
-        for i in range(59, 100):
+        for i in range(67, 100):
             print(f'[+] Processing Range: [{i}% - {(i+1)}%]')
             leetcode_dataset = load_dataset("Elfsong/leetcode_data", split=f"train[{i}%:{(i+1)}%]")
 
