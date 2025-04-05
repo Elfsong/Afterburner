@@ -9,6 +9,7 @@ import json
 import random
 import logging
 import textwrap
+import requests
 from tqdm import tqdm
 from tabulate import tabulate
 from monolith import monolith
@@ -118,7 +119,10 @@ class VenusEvaluator:
             test_code = TEMPLATE.format(solution_code=solution_code, test_case_evaluator=test_case_evaluator, test_case_list=test_case_list_str, case_multiply=case_multiply)
 
             # Submit Test Code to Monolith
-            task_id = monolith_client.post_code_submit(lang="python", libs=[], code=test_code, timeout=timeout, profiling=True)["task_id"]
+            monolith_response = monolith_client.post_code_submit(lang="python", libs=[], code=test_code, timeout=timeout, profiling=True)
+            task_id = monolith_response['task_id']
+            if task_id is None:
+                raise requests.exceptions.RequestException("Task ID is None")
             
             # Wait for Test Code to Finish
             for _ in range(timeout):
@@ -135,10 +139,15 @@ class VenusEvaluator:
                 response['time'] = result['output_dict']['duration']
                 response['memory'] = result['output_dict']['peak_memory']
                 response['integral'] = result['output_dict']['integral']
-            
+                
+        except requests.exceptions.RequestException as e:
+            print("Request Error: ", e)
+            response['status'] = 'error'
+        except requests.exceptions.JSONDecodeError as e:
+            print("JSON Decode Error: ", e)
+            response['status'] = 'error'
         except Exception as e:
             print("Evaluation Error: ", e)
-            print(logging.exception(e))
             response['status'] = 'error'
         finally:
             return response
@@ -152,7 +161,7 @@ class VenusEvaluator:
             problem_id = int(instance['question_id'])
             venus_dict[problem_id] = instance
         
-        for i in range(38, 100):
+        for i in range(53, 100):
             print(f'[+] Processing Range: [{i}% - {(i+1)}%]')
             leetcode_dataset = load_dataset("Elfsong/leetcode_data", split=f"train[{i}%:{(i+1)}%]")
 
