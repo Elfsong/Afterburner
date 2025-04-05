@@ -122,7 +122,7 @@ class VenusEvaluator:
             monolith_response = monolith_client.post_code_submit(lang="python", libs=[], code=test_code, timeout=timeout, profiling=True)
             task_id = monolith_response['task_id']
             if task_id is None:
-                raise requests.exceptions.RequestException("Task ID is None")
+                raise requests.exceptions.RequestException("Task ID is None" + "->" + str(monolith_response))
             
             # Wait for Test Code to Finish
             for _ in range(timeout):
@@ -266,5 +266,5 @@ class VenusEvaluator:
         
 
 if __name__ == "__main__":
-    venus_evaluator = VenusEvaluator(lang="python3", number_of_workers=48, case_multiply=64, monolith_timeout=90)
+    venus_evaluator = VenusEvaluator(lang="python3", number_of_workers=64, case_multiply=64, monolith_timeout=90)
     venus_evaluator.venus_distribution_pipeline()
