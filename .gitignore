@@ -11,3 +11,4 @@ wandb/*
 data/*
 benchmarks/benchmark.log
 .vscode/*
+venus/venus_playground.ipynb
