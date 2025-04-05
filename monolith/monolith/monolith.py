@@ -23,7 +23,7 @@ class Monolith:
         adapter = HTTPAdapter(max_retries=retry_strategy)
         self.session.mount("https://", adapter)
         self.session.mount("http://", adapter)
-    
+            
     def post_code_submit(self, lang, libs, code: str, timeout: int, profiling: bool) -> dict:
         data = {
             'code': code,
@@ -32,8 +32,23 @@ class Monolith:
             'timeout': timeout,
             'run_memory_profile': profiling
         }
-        response = self.session.post(f'{self.backend_url}/execute', json=data, timeout=timeout)
-        return response.json()
+        
+        response_dict = {'task_id': None, 'status': 'error', 'error': 'unknown'}
+        try:
+            response = self.session.post(f'{self.backend_url}/execute', json=data, timeout=timeout)
+            if response.status_code == 200:
+                response = response.json()
+                response_dict['task_id'] = response.get('task_id', None)
+                response_dict['status'] = response.get('status', None)
+                response_dict['error'] = response.get('error', None)
+            else:
+                raise Exception(f"Error {response.status_code}: {response.text}")
+        except Exception as e:
+            response_dict['task_id'] = None
+            response_dict['status'] = 'error'
+            response_dict['error'] = str(e)
+        finally:
+            return response_dict
 
     def get_code_result(self, task_id: str) -> dict:
         response = self.session.get(f'{self.backend_url}/results/{task_id}')

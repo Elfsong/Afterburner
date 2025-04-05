@@ -139,13 +139,6 @@ class VenusEvaluator:
                 response['time'] = result['output_dict']['duration']
                 response['memory'] = result['output_dict']['peak_memory']
                 response['integral'] = result['output_dict']['integral']
-                
-        except requests.exceptions.RequestException as e:
-            print("Request Error: ", e)
-            response['status'] = 'error'
-        except requests.exceptions.JSONDecodeError as e:
-            print("JSON Decode Error: ", e)
-            response['status'] = 'error'
         except Exception as e:
             print("Evaluation Error: ", e)
             response['status'] = 'error'
