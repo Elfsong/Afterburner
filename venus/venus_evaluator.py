@@ -108,7 +108,7 @@ Your task is to implement a solution to the following problem in {target_lang}.
 """
 
 def venus_evaluation_unpacker(args):
-    return VenusEvaluator.venus_evaluation(*args)
+    return VenusEvaluator.venus_sync_evaluation(*args)
 
 class VenusEvaluator:
     def __init__(self, lang, number_of_workers, case_multiply, monolith_timeout) -> None:
@@ -162,6 +162,54 @@ class VenusEvaluator:
             response['status'] = 'error'
         finally:
             return response
+    
+    @classmethod
+    def venus_sync_evaluation(cls, solution_code: str, instance: Any, case_multiply: int, timeout: int) -> dict:
+        response = {'passed': False, 'time': float('inf'), 'memory': float('inf'), 'integral': float('inf'), 'status': 'error'}
+        try:
+            # Construct Test Code
+            test_case_evaluator = instance['test_case_evaluator'].strip()
+            test_case_runners = instance['test_case_runners']
+            test_cases = json.loads(instance['test_cases'])
+
+            solution_code = test_case_runners['python3'].replace('==Code Submission==', solution_code.strip())
+            solution_code = textwrap.indent(solution_code.strip(), "    ")
+            test_case_evaluator = textwrap.indent(test_case_evaluator, "    ")
+            test_case_list_str = json.dumps(test_cases, indent=4)
+
+            test_code = EVALUATION_TEMPLATE.format(solution_code=solution_code, test_case_evaluator=test_case_evaluator, test_case_list=test_case_list_str, case_multiply=case_multiply)
+
+            # Submit Test Code to Monolith
+            data = {
+                'code': test_code,
+                'language': 'python',
+                'libraries': [],
+                'timeout': timeout,
+                'run_profiling': True
+            }
+            monolith_response = requests.post(f'https://monolith.cool/execute', json=data, timeout=(10, timeout))
+            if monolith_response.status_code == 200:
+                monolith_response = monolith_response.json()
+
+                response['status'] = monolith_response['status']
+                if monolith_response["status"] == "success":
+                    response['passed'] = True if monolith_response['output_dict']['stdout'] == 'Success\n' else False
+                    response['time'] = monolith_response['output_dict']['duration']
+                    response['memory'] = monolith_response['output_dict']['peak_memory']
+                    response['integral'] = monolith_response['output_dict']['integral']
+            elif monolith_response.status_code == 413:
+                response['status'] = "too large"
+            else:
+                raise requests.exceptions.RequestException("API Error: " + str(monolith_response.content), monolith_response.status_code)
+        except requests.exceptions.ReadTimeout as e:
+            response['status'] = 'timeout'
+        except requests.exceptions.ConnectionError as e:
+            response['status'] = 'timeout'
+        except Exception as e:
+            print("Evaluation Error: ", e)
+            response['status'] = 'error'
+        finally:
+            return response
 
     def venus_generation(self, instance: Any, target_lang: str) -> str:
         pass
@@ -175,7 +223,7 @@ class VenusEvaluator:
             problem_id = int(instance['question_id'])
             venus_dict[problem_id] = instance
         
-        for i in range(67, 100):
+        for i in range(86, 100):
             print(f'[+] Processing Range: [{i}% - {(i+1)}%]')
             leetcode_dataset = load_dataset("Elfsong/leetcode_data", split=f"train[{i}%:{(i+1)}%]")
 
@@ -213,13 +261,6 @@ class VenusEvaluator:
                 test_packs = [(solution, instance, self.case_multiply, self.monolith_timeout) for solution in solution_list]
 
                 print(f'[+] Problem {problem_id} [{index}/{len(leetcode_dataset)}] in [{i}% - {(i+1)}%] - {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}')
-                    
-                # Check Monolith Status
-                while True:
-                    monolith_queue_size = self.monolith_client.get_status().get('current_queue_size', -1)
-                    if monolith_queue_size == 0:
-                        break
-                    time.sleep(5)
 
                 # Parallel Evaluation
                 results = list()
