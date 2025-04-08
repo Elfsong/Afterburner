@@ -3,193 +3,80 @@
 # Author: Du Mingzhe (mingzhe@nus.edu.sg)
 # Date: 2025-01-13
 
-import sys
-sys.path.append('/home/nus_cisco_wp1/Projects/llm-sandbox')
-
 import re
 import json
 import threading
 from typing import List
+from functools import cache
 from pydantic import BaseModel, ConfigDict
 
-class CodeGeneration(BaseModel):
-    model_config = ConfigDict(extra='forbid')  # required for openai
-    # draft: str
-    code: str
 
-def extract_python_code_from_response(response):
-    # Regular expression to match JSON within the response
-    match = re.search(r"```python\n(.*?)\n```", response, re.DOTALL)
-    
-    if match:
-        code_str = match.group(1)
-        return code_str
-    else:
-        print("No code found in the response.")
-        return None
+LANGUAGE_REGISTRY = {
+    'cpp': {"id": 0, "verbose_name": "C++", "md_langs": ["cpp", "c++"]},
+    'java': {"id": 1, "verbose_name": "Java", "md_langs": ["java"]},
+    'python': {"id": 2, "verbose_name": "Python", "md_langs": ["python", "py"]},
+    'mysql': {"id": 3, "verbose_name": "MySQL", "md_langs": ["mysql", "sql"]},
+    'c': {"id": 4, "verbose_name": "C", "md_langs": ["c"]},
+    'csharp': {"id": 5, "verbose_name": "C#", "md_langs": ["cs", "csharp", "c#"]},
+    'javascript': {"id": 6, "verbose_name": "JavaScript", "md_langs": ["js", "javascript", "node"]},
+    'ruby': {"id": 7, "verbose_name": "Ruby", "md_langs": ["rb", "ruby", "jruby", "macruby", "rake", "rbx"]},
+    'bash': {"id": 8, "verbose_name": "Bash", "md_langs": ["sh", "bash", "shell", "shell-script", "zsh"]},
+    'swift': {"id": 9, "verbose_name": "Swift", "md_langs": ["swift"]},
+    'golang': {"id": 10, "verbose_name": "Go", "md_langs": ["golang", "go"]},
+    'python3': {"id": 11, "verbose_name": "Python3", "md_langs": ["python", "py"]},
+    'scala': {"id": 12, "verbose_name": "Scala", "md_langs": ["scala"]},
+    'kotlin': {"id": 13, "verbose_name": "Kotlin", "md_langs": ["kotlin"]},
+    'mssql': {"id": 14, "verbose_name": "MS SQL Server", "md_langs": ["tsql", "mssql"]},
+    'oraclesql': {"id": 15, "verbose_name": "Oracle", "md_langs": ["plsql", "oraclesql"]},
+    'rust': {"id": 18, "verbose_name": "Rust", "md_langs": ["rust", "rs"]},
+    'php': {"id": 19, "verbose_name": "PHP", "md_langs": ["php"]},
+    'typescript': {"id": 20, "verbose_name": "TypeScript", "md_langs": ["ts", "typescript"]},
+    'racket': {"id": 21, "verbose_name": "Racket", "md_langs": ["racket"]},
+    'erlang': {"id": 22, "verbose_name": "Erlang", "md_langs": ["erlang"]},
+    'elixir': {"id": 23, "verbose_name": "Elixir", "md_langs": ["elixir"]},
+    'dart': {"id": 24, "verbose_name": "Dart", "md_langs": ["dart"]},
+    'pythondata': {"id": 25, "verbose_name": "Pandas", "md_langs": ["pandas", "pythondata"]},
+    'react': {"id": 26, "verbose_name": "React", "md_langs": ["jsx", "react"]},
+    'vanillajs': {"id": 27, "verbose_name": "Vanilla JS", "md_langs": ["js", "javascript", "vanillajs"]},
+    'postgresql': {"id": 28, "verbose_name": "PostgreSQL", "md_langs": ["postgres", "postgresql", "pgsql"]},
+    'cangjie': {"id": 29, "verbose_name": "Cangjie", "md_langs": ["cangjie"]},
+}
 
-def solution_filter(instance):
-    filtered_solutions = list()
-    solution_prompt = instance['code_prompt']
-    
-    # Runtime Solutions
-    for solution in instance['rt_list']:
-        if 'user.out' in solution['code']: continue
-        if 'Solution' not in solution['code']: continue
-        if solution_prompt not in solution['code']: continue
-        filtered_solutions.append(solution)
-    instance['rt_list'] = filtered_solutions
-    
-    # Memory Solutions
-    filtered_solutions = list()
-    for solution in instance['mm_list']:
-        if 'user.out' in solution['code']: continue
-        if 'Solution' not in solution['code']: continue
-        if solution_prompt not in solution['code']: continue
-        filtered_solutions.append(solution)
-    instance['mm_list'] = filtered_solutions
-    
-    return instance
-
-
-def run_with_timeout(func, timeout, *args, **kwargs):
-    """Runs a function with a timeout."""
-    result = {'output': None, 'error': None}
-
-    def target():
-        try:
-            result['output'] = func(*args, **kwargs)
-        except Exception as e:
-            result['error'] = e
-
-    thread = threading.Thread(target=target, daemon=True)
-    thread.start()
-    thread.join(timeout)
-
-    if thread.is_alive():
-        thread.join(0)  # Clean up the thread
-        result["error"] = 'Timeout Reached.'
-    return result
-
-def solution_prompt_construct(instance: dict, instruction: str, solution_code: str) -> str:
-    prompt = f"""
-Given the following problem details and the original solution, outline your approach and then optimize the existing solution.
-
-# Instruction:
-{instruction}
-
-# Problem Description:
-{instance['content']}
-
-# Original Solution:
-{solution_code}
-
-Please provide your response in **JSON format** with the following keys:
-- "draft" : A concise explanation of your thought process or approach.
-- "code"  : The optimized code solution.
+@cache
+def get_md_lang(lang: str) -> str | None:
     """
-    return prompt
-
-def solution_generation_prompt_construct(problem_content: str, instruction: str) -> str:
-    prompt = f"""
-Given the following problem description, outline your approach and then generater a solution.
-
-# Instruction:
-{instruction}
-
-# Problem Description:
-{problem_content}
-
-Please provide your response in **JSON format** with the following keys:
-- "draft" : A concise explanation of your thought process or approach.
-- "code"  : The code solution.
+    Returns the first Markdown code block identifier for the given language key from LANG_LOOKUP.
+    Returns None if not found.
     """
-    return prompt
+    md_langs = LANGUAGE_REGISTRY.get(lang, {}).get("md_langs", [])
+    return md_langs[0] if md_langs else None
 
-def pure_solution_generation_prompt_construct(problem_content: str, instruction: str, lang: str) -> str:
-    prompt = f"""
-Given the following problem description, generater a correct and concise {lang} solution.
-
-Take the input from stdin (input()) and output to stdout (print()).
-
-Please respond a {lang} solution in the following format:
-```python
-{lang} code here
-```
-
-# Instruction:
-{instruction}
-
-# Problem Description:
-{problem_content}
+@cache
+def get_lang_by_md_lang(md_lang: str) -> str | None:
     """
-    return prompt
-
-def code_evalution_construct(import_code: str, solution: str, test_case_generator: str, entry_point: str, test_case: List[dict]) -> str:
-    test_case_template = """
-test_case_input_obj = test_case_generator.decode_input('''{test_case_input_str}''')
-test_case_output_obj = solution.{entry_point}(**test_case_input_obj)
-test_case_output_str = test_case_generator.encode_output(test_case_output_obj)
-assert test_case_output_str == '''{test_case_output_str}'''
-"""
-    test_code = ""
-    for test in test_case:
-        test_code += test_case_template.format(test_case_input_str=test['input'], test_case_output_str=test['output'], entry_point=entry_point)
-
-    code_template = """
-import json
-import itertools
-import collections
-import heapq
-import bisect
-import string
-import sys
-import functools
-import math
-import copy
-import re
-# import numpy as np
-# import pandas as pd
-
-from math import floor, ceil, factorial, sqrt, inf
-from sys import maxsize, stdin
-from bisect import bisect_left, bisect_right
-from itertools import permutations, zip_longest
-from heapq import heappush, heappop, heapify
-from collections import deque, defaultdict, OrderedDict, Counter
-from typing import List, Optional, Tuple
-from functools import lru_cache, cache
-
-class TreeNode:
-    def __init__(self, x):
-        self.val = x
-        self.left = None
-        self.right = None
-
-class ListNode:
-    def __init__(self, x):
-        self.val = x
-        self.next = None
-
-### IMPORT CODE STARTS###
-{import_code}
-### IMPORT CODE ENDS###
-
-### SOLUTION STARTS###
-{solution}
-### SOLUTION CODE ENDS###
-
-### TEST CASE GENERATOR STARTS###
-{test_case_generator}
-### TEST CASE GENERATOR ENDS###
-
-solution = Solution()
-test_case_generator = TestCaseGenerator()
-
-### TEST CASES STARTS###
-{test_code}
-### TEST CASES ENDS###
-
-print('success')
+    Returns the language key for the given Markdown code block identifier from LANG_LOOKUP.
+    Returns None if not found.
     """
-    return code_template.format(import_code=import_code, solution=solution, test_case_generator=test_case_generator, entry_point=entry_point, test_code=test_code)
+    if md_lang in LANGUAGE_REGISTRY["python3"]["md_langs"]:
+        return "python3"
+    return next((key for key, value in LANGUAGE_REGISTRY.items() if md_lang in value["md_langs"]), None)
+
+@cache
+def get_lang_by_verbose_name(verbose_name: str) -> str | None:
+    """
+    Returns the language key for the given verbose name from LANG_LOOKUP.
+    Returns None if not found.
+    """
+    return next((key for key, value in LANGUAGE_REGISTRY.items() if verbose_name.lower() == value["verbose_name"].lower()), None)
+
+def extract_code_blocks(text: str) -> list[dict[str, str]]:
+    _CODE_BLOCK_PATTERN = re.compile(r"```([\w+-]*)(?:\n|\r\n)?(.*?)```", re.DOTALL)
+    blocks: list[dict[str, str]] = []
+    for match in _CODE_BLOCK_PATTERN.finditer(text):
+        lang = match.group(1).strip()
+        code = match.group(2).strip()
+        blocks.append({"lang": lang, "code": code})
+    return blocks
+
+def wrap_code_block(lang: str, code: str) -> str:
+    return f"```{get_md_lang(lang)}\n{code}\n```"

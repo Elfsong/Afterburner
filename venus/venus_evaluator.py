@@ -3,9 +3,10 @@
 # Author: Du Mingzhe (mingzhe@nus.edu.sg)
 # Date: 2025-03-30
 
-
+import os
 import time
 import json
+import utils
 import random
 import logging
 import textwrap
@@ -15,6 +16,7 @@ from tabulate import tabulate
 from monolith import monolith
 from typing import Any, List, final
 from datasets import load_dataset, Dataset
+from huggingface_hub import InferenceClient
 from multiprocessing.dummy import Pool as ThreadPool
 
 EVALUATION_TEMPLATE = """import io
@@ -98,7 +100,7 @@ Your task is to implement a solution to the following problem in {target_lang}.
 {question}
 
 ## Starter Code
-{wrap_code_block(target_lang, starter_code)}
+{starter_code}
 
 ## Output Format
 - Provide the complete solution code in **one markdown code block** with appropriate language identifier.
@@ -106,9 +108,6 @@ Your task is to implement a solution to the following problem in {target_lang}.
 - EXCLUDE ALL explanations, code comments, import/package/library statements, additional classes or functions outside of the starter code scope, or starting code like `if __name__ == "__main__":` or `func main()` or `package main` or `using namespace std;`.
 - Use but do not redefine any helper data structures provided in the starter code (even if commented out).
 """
-
-def venus_evaluation_unpacker(args):
-    return VenusEvaluator.venus_sync_evaluation(*args)
 
 class VenusEvaluator:
     def __init__(self, lang, number_of_workers, case_multiply, monolith_timeout) -> None:
@@ -119,7 +118,7 @@ class VenusEvaluator:
         self.monolith_client = monolith.Monolith(backend_url='https://monolith.cool', retries=3)
 
     @classmethod
-    def venus_evaluation(cls, solution_code: str, instance: Any, case_multiply: int, timeout: int) -> dict:
+    def venus_async_evaluation(cls, solution_code: str, instance: Any, case_multiply: int, timeout: int) -> dict:
         response = {'passed': False, 'time': float('inf'), 'memory': float('inf'), 'integral': float('inf'), 'status': 'error'}
         try:
             monolith_client = monolith.Monolith(backend_url='https://monolith.cool', retries=2)
@@ -202,9 +201,9 @@ class VenusEvaluator:
             else:
                 raise requests.exceptions.RequestException("API Error: " + str(monolith_response.content), monolith_response.status_code)
         except requests.exceptions.ReadTimeout as e:
-            response['status'] = 'timeout'
+            response['status'] = 'timeout (server)'
         except requests.exceptions.ConnectionError as e:
-            response['status'] = 'timeout'
+            response['status'] = 'timeout (client)'
         except Exception as e:
             print("Evaluation Error: ", e)
             response['status'] = 'error'
@@ -212,7 +211,25 @@ class VenusEvaluator:
             return response
 
     def venus_generation(self, instance: Any, target_lang: str) -> str:
-        pass
+        # Prepare the prompt
+        prompt = GENERATION_TEMPLATE.format(
+            target_lang=target_lang,
+            question=instance['content'],
+            starter_code=utils.wrap_code_block(target_lang, instance['code_prompt']),
+        )
+        # Prepare the API client
+        client = InferenceClient(
+            provider="together",
+            api_key=os.getenv("HF_INFER_TOKEN"),
+        )
+        # Generate the solution
+        completion = client.chat.completions.create(
+            model="Qwen/Qwen2.5-Coder-32B-Instruct",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=2048,
+        )
+
+        return completion.choices[0].message.content
     
     def venus_distribution_pipeline(self):
         # Load the datasets
@@ -266,7 +283,7 @@ class VenusEvaluator:
                 results = list()
                 with ThreadPool(self.number_of_workers) as pool:
                     with tqdm(total=len(test_packs), desc='Solution Evaluation') as pbar:
-                        for result in pool.imap(venus_evaluation_unpacker, test_packs):
+                        for result in pool.imap(lambda args: VenusEvaluator.venus_sync_evaluation(*args), test_packs):
                             results.append(result)
                             pbar.update(1)
                 
@@ -325,8 +342,19 @@ class VenusEvaluator:
     def venus_evalution_pipeline(self, model_name, k=1):
         # Load the datasets
         venus_dataset = load_dataset("Elfsong/Venus", "python3", split="train")
-        
+
+        for instance in tqdm(venus_dataset):
+            generated_solution = self.venus_generation(instance, self.lang)
+
+            result = self.venus_sync_evaluation(generated_solution, instance, self.case_multiply, self.monolith_timeout)
+
+            print(result)
 
 if __name__ == "__main__":
     venus_evaluator = VenusEvaluator(lang="python3", number_of_workers=64, case_multiply=64, monolith_timeout=90)
-    venus_evaluator.venus_distribution_pipeline()
+
+    # Get the distribution of each problem (it takes a long long time, be careful if you truely want to run it)
+    # venus_evaluator.venus_distribution_pipeline()
+
+    # Evaluate the model
+    venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-Coder-32B-Instruct", k=1)
