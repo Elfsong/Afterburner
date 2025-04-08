@@ -5,6 +5,7 @@
 
 import re
 import json
+import bisect
 import threading
 from typing import List
 from functools import cache
@@ -80,3 +81,11 @@ def extract_code_blocks(text: str) -> list[dict[str, str]]:
 
 def wrap_code_block(lang: str, code: str) -> str:
     return f"```{get_md_lang(lang)}\n{code}\n```"
+
+def percentage_position(num, lst):
+    if not lst:
+        raise ValueError("List cannot be empty.")
+    sorted_lst = sorted(lst)
+    insert_pos = bisect.bisect_left(sorted_lst, num)
+    percentage = (insert_pos / len(lst)) * 100
+    return percentage

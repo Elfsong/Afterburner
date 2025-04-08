@@ -3,6 +3,9 @@
 # Author: Du Mingzhe (mingzhe@nus.edu.sg)
 # Date: 2025-03-30
 
+import sys
+sys.path.append("/home/mingzhe/Projects/Afterburner")
+
 import os
 import time
 import json
@@ -170,8 +173,7 @@ class VenusEvaluator:
             test_case_evaluator = instance['test_case_evaluator'].strip()
             test_case_runners = instance['test_case_runners']
             test_cases = json.loads(instance['test_cases'])
-
-            solution_code = test_case_runners['python3'].replace('==Code Submission==', solution_code.strip())
+            solution_code = test_case_runners.replace('==Code Submission==', solution_code.strip())
             solution_code = textwrap.indent(solution_code.strip(), "    ")
             test_case_evaluator = textwrap.indent(test_case_evaluator, "    ")
             test_case_list_str = json.dumps(test_cases, indent=4)
@@ -186,7 +188,7 @@ class VenusEvaluator:
                 'timeout': timeout,
                 'run_profiling': True
             }
-            monolith_response = requests.post(f'https://monolith.cool/execute', json=data, timeout=(10, timeout))
+            monolith_response = requests.post(f'https://monolith.cool/execute', json=data, timeout=(120, timeout))
             if monolith_response.status_code == 200:
                 monolith_response = monolith_response.json()
 
@@ -210,21 +212,21 @@ class VenusEvaluator:
         finally:
             return response
 
-    def venus_generation(self, instance: Any, target_lang: str) -> str:
+    def venus_generation(self, model_name, instance: Any, target_lang: str) -> str:
         # Prepare the prompt
         prompt = GENERATION_TEMPLATE.format(
             target_lang=target_lang,
-            question=instance['content'],
+            question=instance['question_content'],
             starter_code=utils.wrap_code_block(target_lang, instance['code_prompt']),
         )
         # Prepare the API client
         client = InferenceClient(
             provider="together",
-            api_key=os.getenv("HF_INFER_TOKEN"),
+            api_key=os.environ.get("HF_INFER_TOKEN"),
         )
         # Generate the solution
         completion = client.chat.completions.create(
-            model="Qwen/Qwen2.5-Coder-32B-Instruct",
+            model=model_name,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=2048,
         )
@@ -240,7 +242,7 @@ class VenusEvaluator:
             problem_id = int(instance['question_id'])
             venus_dict[problem_id] = instance
         
-        for i in range(86, 100):
+        for i in range(100):
             print(f'[+] Processing Range: [{i}% - {(i+1)}%]')
             leetcode_dataset = load_dataset("Elfsong/leetcode_data", split=f"train[{i}%:{(i+1)}%]")
 
@@ -339,16 +341,50 @@ class VenusEvaluator:
             new_leetcode_dataset = Dataset.from_list(new_leetcode_data)
             new_leetcode_dataset.push_to_hub("Elfsong/Venus_python", 'verified', split=f"{i}_{(i+1)}", private=True)
 
-    def venus_evalution_pipeline(self, model_name, k=1):
+    def venus_evalution_pipeline(self, model_name, dataset_split_name, data_precentage="100%"):
         # Load the datasets
-        venus_dataset = load_dataset("Elfsong/Venus", "python3", split="train")
+        venus_dataset = load_dataset("Elfsong/Venus_python_verified", split=f"verified[:{data_precentage}]")
 
-        for instance in tqdm(venus_dataset):
-            generated_solution = self.venus_generation(instance, self.lang)
+        # Prepare instance packs
+        test_packs = list()
+        for instance in tqdm(venus_dataset, desc='Preparing Test Packs'):
+            generated_solution = self.venus_generation(model_name, instance, self.lang)
+            generated_solution = utils.extract_code_blocks(generated_solution)[0]['code']
+            test_packs.append((generated_solution, instance, self.case_multiply, self.monolith_timeout))
+        
+        # Parallel Evaluation
+        results = list()
+        with ThreadPool(self.number_of_workers) as pool:
+            with tqdm(total=len(test_packs), desc='Solution Evaluation') as pbar:
+                for result in pool.imap(lambda args: VenusEvaluator.venus_sync_evaluation(*args), test_packs):
+                    results.append(result)
+                    pbar.update(1)
 
-            result = self.venus_sync_evaluation(generated_solution, instance, self.case_multiply, self.monolith_timeout)
+        # Score Calculation
+        instance_scores = list()
+        for instance, test_pack, result in zip(venus_dataset, test_packs, results):
+            time_distribution = [s['time'] for s in instance['solutions'] if s['passed']]
+            memory_distribution = [s['memory'] for s in instance['solutions'] if s['passed']]
+            integral_distribution = [s['integral'] for s in instance['solutions'] if s['passed']]
 
-            print(result)
+            status = {
+                "problem_id": instance['problem_id'],
+                "passed": result['passed'],
+                "precentile_time": utils.percentage_position(result['time'], time_distribution),
+                "precentile_memory": utils.percentage_position(result['memory'], memory_distribution),
+                "precentile_integral": utils.percentage_position(result['integral'], integral_distribution),
+                "absolute_time": result['time'],
+                "absolute_memory": result['memory'],
+                "absolute_integral": result['integral'],
+                "solution_code": test_pack[0],
+            }
+
+            instance_scores.append(status)
+            print(f"Problem [{instance['problem_id']}] - {status}")
+            
+        # Save the results
+        Dataset.from_list(instance_scores).push_to_hub("Elfsong/Venus_Model_Evaluation", 'evaluation', split=dataset_split_name, private=True)
+
 
 if __name__ == "__main__":
     venus_evaluator = VenusEvaluator(lang="python3", number_of_workers=64, case_multiply=64, monolith_timeout=90)
@@ -357,4 +393,4 @@ if __name__ == "__main__":
     # venus_evaluator.venus_distribution_pipeline()
 
     # Evaluate the model
-    venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-Coder-32B-Instruct", k=1)
+    venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-Coder-32B-Instruct", dataset_split_name="qwen_2_5_coder_32b_instruct", data_precentage="5%")
