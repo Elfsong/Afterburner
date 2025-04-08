@@ -212,7 +212,7 @@ class VenusEvaluator:
         finally:
             return response
 
-    def venus_generation(self, model_name, instance: Any, target_lang: str) -> str:
+    def venus_generation(self, inference_provider, model_name, instance: Any, target_lang: str, temperature=0, max_token=2048) -> str:
         # Prepare the prompt
         prompt = GENERATION_TEMPLATE.format(
             target_lang=target_lang,
@@ -221,14 +221,15 @@ class VenusEvaluator:
         )
         # Prepare the API client
         client = InferenceClient(
-            provider="together",
+            provider=inference_provider,
             api_key=os.environ.get("HF_INFER_TOKEN"),
         )
         # Generate the solution
         completion = client.chat.completions.create(
             model=model_name,
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=2048,
+            temperature=temperature,
+            max_tokens=max_token,
         )
 
         return completion.choices[0].message.content
@@ -341,16 +342,22 @@ class VenusEvaluator:
             new_leetcode_dataset = Dataset.from_list(new_leetcode_data)
             new_leetcode_dataset.push_to_hub("Elfsong/Venus_python", 'verified', split=f"{i}_{(i+1)}", private=True)
 
-    def venus_evalution_pipeline(self, model_name, dataset_split_name, data_precentage="100%"):
+    def venus_evalution_pipeline(self, model_name, dataset_split_name, inference_provider, data_precentage="100%", data_multiply=1):
         # Load the datasets
         venus_dataset = load_dataset("Elfsong/Venus_python_verified", split=f"verified[:{data_precentage}]")
 
         # Prepare instance packs
         test_packs = list()
         for instance in tqdm(venus_dataset, desc='Preparing Test Packs'):
-            generated_solution = self.venus_generation(model_name, instance, self.lang)
-            generated_solution = utils.extract_code_blocks(generated_solution)[0]['code']
-            test_packs.append((generated_solution, instance, self.case_multiply, self.monolith_timeout))
+            try:
+                generated_solution = self.venus_generation(inference_provider, model_name, instance, self.lang, temperature=0, max_token=2048)
+                generated_solution = utils.extract_code_blocks(generated_solution)[0]['code']
+            except Exception as e:
+                print(f"[-] Generation Error: {e}")
+                generated_solution = ""
+            finally:
+                test_packs.append((generated_solution, instance, self.case_multiply, self.monolith_timeout))
+        test_packs = test_packs * data_multiply
         
         # Parallel Evaluation
         results = list()
@@ -361,29 +368,44 @@ class VenusEvaluator:
                     pbar.update(1)
 
         # Score Calculation
-        instance_scores = list()
-        for instance, test_pack, result in zip(venus_dataset, test_packs, results):
+        instance_list = list()
+        for instance, test_pack, result in zip(venus_dataset.repeat(data_multiply), test_packs, results):
             time_distribution = [s['time'] for s in instance['solutions'] if s['passed']]
             memory_distribution = [s['memory'] for s in instance['solutions'] if s['passed']]
             integral_distribution = [s['integral'] for s in instance['solutions'] if s['passed']]
 
             status = {
-                "problem_id": instance['problem_id'],
-                "passed": result['passed'],
+                "problem_id": int(instance['problem_id']),
+                "passed": bool(result['passed']),
                 "precentile_time": utils.percentage_position(result['time'], time_distribution),
                 "precentile_memory": utils.percentage_position(result['memory'], memory_distribution),
                 "precentile_integral": utils.percentage_position(result['integral'], integral_distribution),
-                "absolute_time": result['time'],
-                "absolute_memory": result['memory'],
-                "absolute_integral": result['integral'],
-                "solution_code": test_pack[0],
+                "absolute_time": float(result['time']),
+                "absolute_memory": float(result['memory']),
+                "absolute_integral": float(result['integral']),
+                "solution_code": str(test_pack[0]),
             }
 
-            instance_scores.append(status)
-            print(f"Problem [{instance['problem_id']}] - {status}")
+            instance_list.append(status)
+        
+        scores = {"total_c": 0, "pass_c": 0, "time_s": 0,"memory_s": 0, "integral_s": 0}
+        for instance in instance_list:
+            scores["total_c"] += 1
+            if instance['passed']:
+                scores["pass_c"] += 1
+                scores["time_s"] += instance['precentile_time']
+                scores["memory_s"] += instance['precentile_memory']
+                scores["integral_s"] += instance['precentile_integral']
+        
+        scores["pass_score"] = scores["pass_c"] / scores["total_c"]
+        scores["time_score"] = scores["time_s"] / scores["total_c"]
+        scores["memory_score"] = scores["memory_s"] / scores["total_c"]
+        scores["integral_score"] = scores["integral_s"] / scores["total_c"]
+
+        print(f"[{dataset_split_name}] Pass@1:{scores['pass_score']:.2f} Time_Precent:{scores['time_score']:.2f} Memory_Precent:{scores['memory_score']:.2f} Integral_Precent:{scores['integral_score']:.2f}")
             
         # Save the results
-        Dataset.from_list(instance_scores).push_to_hub("Elfsong/Venus_Model_Evaluation", 'evaluation', split=dataset_split_name, private=True)
+        Dataset.from_list(instance_list).push_to_hub("Elfsong/Venus_Model_Evaluation", 'evaluation', split=dataset_split_name, private=True)
 
 
 if __name__ == "__main__":
@@ -393,4 +415,5 @@ if __name__ == "__main__":
     # venus_evaluator.venus_distribution_pipeline()
 
     # Evaluate the model
-    venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-Coder-32B-Instruct", dataset_split_name="qwen_2_5_coder_32b_instruct", data_precentage="5%")
+    for i in range(3):
+        venus_evaluator.venus_evalution_pipeline(model_name="google/gemma-3-27b-it", dataset_split_name="gemma_3_27b", inference_provider="nebius", data_precentage="1%", data_multiply=16)
