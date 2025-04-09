@@ -9,14 +9,17 @@ import json
 import bisect
 import threading
 from typing import List
+from openai import OpenAI
 from functools import cache
 from pydantic import BaseModel, ConfigDict
+from huggingface_hub import InferenceClient
 
 TOKEN_REGISTRY = {
     "nebius": os.getenv("NEBIUS_TOKEN"),
     "together": os.getenv("TOGETHER_TOKEN"),
     "huggingface": os.getenv("HUGGINGFACE_TOKEN"),
     "openai": os.getenv("OPENAI_TOKEN"),
+    "claude": os.getenv("CLAUDE_TOKEN"),
 }
 
 LANGUAGE_REGISTRY = {
@@ -57,6 +60,28 @@ def get_token(provider_name: str) -> str | None:
     Returns None if not found.
     """
     return TOKEN_REGISTRY.get(provider_name)
+
+@cache
+def get_provider_name(provider_name: str) -> str | None:
+    """
+    Returns the provider name for the specified token from TOKEN_REGISTRY.
+    Returns None if not found.
+    """
+    provider_list = ['black-forest-labs', 'cerebras', 'cohere', 'fal-ai', 'fireworks-ai', 'hf-inference', 'hyperbolic', 'nebius', 'novita', 'openai', 'replicate', 'sambanova', 'together']
+    return provider_name if provider_name in provider_list else None
+
+@cache
+def get_url(provider_name: str) -> str | None:
+    """
+    Returns the URL for the specified provider name from TOKEN_REGISTRY.
+    Returns None if not found.
+    """
+    if provider_name == "claude":
+        return "https://api.anthropic.com/v1/"
+    elif provider_name == "local":
+        return "'http://localhost:8000/v1"
+    else:
+        return None
 
 @cache
 def get_md_lang(lang: str) -> str | None:
@@ -104,3 +129,39 @@ def percentage_position(num: float, lst: list[float]) -> float:
     insert_pos = bisect.bisect_left(sorted_lst, num)
     percentage = 1 - (insert_pos / len(lst))
     return percentage
+
+def code_generation(inference_provider, model_name, prompt, temperature, max_tokens):
+    if inference_provider == "openai" and model_name == "o3-mini":
+        client = OpenAI(api_key=get_token(inference_provider))
+        response = client.responses.create(
+            model="o1",
+            input=[{"role": "user","content": [{"type": "input_text", "text": prompt}]}],
+            text={"format": {"type": "text"}},
+            reasoning={"effort": "low"},
+            tools=[],
+            max_completion_tokens=max_tokens
+        )
+        generated_solution = response.output_text
+        code = extract_code_blocks(generated_solution)[0]['code']
+        return code
+    else:
+        # Prepare the API client
+        client = InferenceClient(
+            provider=get_provider_name(inference_provider),
+            api_key=get_token(inference_provider), 
+            base_url=get_url(inference_provider),
+        )
+        
+        # Generate the solution
+        completion = client.chat.completions.create(
+            model=model_name,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=temperature,
+            max_tokens=max_tokens
+        )
+
+        response = completion.choices[0].message.content
+        solution = response.split("</think>")[-1]
+        code = extract_code_blocks(solution)[0]['code']
+
+        return code
