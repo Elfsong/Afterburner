@@ -365,8 +365,9 @@ class VenusEvaluator:
         # Parallel Evaluation (E)
         if mode in ["E", "G+E"]:
             venus_dataset = load_dataset("Elfsong/Venus_Python", split=f"test[:{data_precentage}]")
-            code_generation_dataset = load_dataset("Elfsong/Venus_Model_Evaluation", dataset_split_name)
-            test_packs = [(code['solution_code'], instance, self.case_multiply, self.monolith_timeout) for code, instance in zip(code_generation_dataset, venus_dataset)]
+            code_generation_dataset = load_dataset("Elfsong/Venus_Model_Evaluation", dataset_split_name, split="train")
+            test_packs = [(code['solution'], instance, self.case_multiply, self.monolith_timeout) for code, instance in zip(code_generation_dataset, venus_dataset)]
+            test_packs = test_packs * data_multiply
                 
             results = list()
             with ThreadPool(self.number_of_workers) as pool:
@@ -414,7 +415,7 @@ class VenusEvaluator:
                 
             # Save the results
             ds = Dataset.from_list(instance_list)
-            ds.push_to_hub("Elfsong/Venus_python_evaluation", dataset_split_name, private=True)
+            ds.push_to_hub("Elfsong/Venus_Python_Model_Evaluation", dataset_split_name, private=True)
 
 
 if __name__ == "__main__":
@@ -423,17 +424,14 @@ if __name__ == "__main__":
     # Get the distribution of each problem (it takes a long long time, be careful if you truely want to run it)
     # venus_evaluator.venus_distribution_pipeline()
 
-    # Evaluate the model
-    # venus_evaluator.venus_evalution_pipeline(model_name="google/gemma-3-27b-it", dataset_split_name="gemma_3_27b", inference_provider="nebius", data_precentage="50%", data_multiply=64, mode="G")
-    # venus_evaluator.venus_evalution_pipeline(model_name="meta-llama/Llama-3.3-70B-Instruct", dataset_split_name="llama_3_3_70b_instruct", inference_provider="together", data_precentage="50%", data_multiply=64, mode="G")
-    # venus_evaluator.venus_evalution_pipeline(model_name="meta-llama/Llama-3.1-8B-Instruct", dataset_split_name="llama_3_1_8b_instruct", inference_provider="nebius", data_precentage="50%", data_multiply=64, mode="G")
-    
-    # venus_evaluator.venus_evalution_pipeline(model_name="meta-llama/Llama-3.1-405B-Instruct", dataset_split_name="llama_3_1_405b_instruct", inference_provider="nebius", data_precentage="50%", data_multiply=64, mode="G")
-    # venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-Coder-32B-Instruct", dataset_split_name="qwen_2_5_coder_32b_instruct", inference_provider="nebius", data_precentage="50%", data_multiply=64, mode="G")
-    # venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-Coder-7B-Instruct", dataset_split_name="qwen_2_5_coder_7b_instruct", inference_provider="nebius", data_precentage="50%", data_multiply=64, mode="G")
-    # venus_evaluator.venus_evalution_pipeline(model_name="deepseek-ai/DeepSeek-V3-0324", dataset_split_name="deepseek_v3", inference_provider="nebius", data_precentage="50%", data_multiply=64, mode="G")
-    # venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-1.5B-Instruct", dataset_split_name="qwen_2_5-1.5_b-instruct", inference_provider=None, data_precentage="1%", data_multiply=64, mode="G")
-
+    # Evaluate these models
+    venus_evaluator.venus_evalution_pipeline(model_name="google/gemma-3-27b-it", dataset_split_name="gemma_3_27b", inference_provider="nebius", data_precentage="50%", data_multiply=8, mode="E")
+    venus_evaluator.venus_evalution_pipeline(model_name="meta-llama/Llama-3.3-70B-Instruct", dataset_split_name="llama_3_3_70b_instruct", inference_provider="together", data_precentage="50%", data_multiply=8, mode="E")
+    venus_evaluator.venus_evalution_pipeline(model_name="meta-llama/Llama-3.1-8B-Instruct", dataset_split_name="llama_3_1_8b_instruct", inference_provider="nebius", data_precentage="50%", data_multiply=8, mode="E")
+    venus_evaluator.venus_evalution_pipeline(model_name="meta-llama/Llama-3.1-405B-Instruct", dataset_split_name="llama_3_1_405b_instruct", inference_provider="nebius", data_precentage="50%", data_multiply=8, mode="E")
+    venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-Coder-32B-Instruct", dataset_split_name="qwen_2_5_coder_32b_instruct", inference_provider="nebius", data_precentage="50%", data_multiply=8, mode="E")
+    venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-Coder-7B-Instruct", dataset_split_name="qwen_2_5_coder_7b_instruct", inference_provider="nebius", data_precentage="50%", data_multiply=8, mode="E")
+    venus_evaluator.venus_evalution_pipeline(model_name="deepseek-ai/DeepSeek-V3-0324", dataset_split_name="deepseek_v3", inference_provider="nebius", data_precentage="50%", data_multiply=8, mode="E")
     
     
 

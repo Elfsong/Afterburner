@@ -13,7 +13,7 @@ from functools import cache
 from pydantic import BaseModel, ConfigDict
 
 TOKEN_REGISTRY = {
-    "neibus": os.getenv("NEIBUS_TOKEN"),
+    "nebius": os.getenv("NEBIUS_TOKEN"),
     "together": os.getenv("TOGETHER_TOKEN"),
     "huggingface": os.getenv("HUGGINGFACE_TOKEN"),
     "openai": os.getenv("OPENAI_TOKEN"),
