@@ -3,6 +3,7 @@
 # Author: Du Mingzhe (mingzhe@nus.edu.sg)
 # Date: 2025-01-13
 
+import os
 import re
 import json
 import bisect
@@ -11,6 +12,12 @@ from typing import List
 from functools import cache
 from pydantic import BaseModel, ConfigDict
 
+TOKEN_REGISTRY = {
+    "neibus": os.getenv("NEIBUS_TOKEN"),
+    "together": os.getenv("TOGETHER_TOKEN"),
+    "huggingface": os.getenv("HUGGINGFACE_TOKEN"),
+    "openai": os.getenv("OPENAI_TOKEN"),
+}
 
 LANGUAGE_REGISTRY = {
     'cpp': {"id": 0, "verbose_name": "C++", "md_langs": ["cpp", "c++"]},
@@ -42,6 +49,14 @@ LANGUAGE_REGISTRY = {
     'postgresql': {"id": 28, "verbose_name": "PostgreSQL", "md_langs": ["postgres", "postgresql", "pgsql"]},
     'cangjie': {"id": 29, "verbose_name": "Cangjie", "md_langs": ["cangjie"]},
 }
+
+@cache
+def get_token(provider_name: str) -> str | None:
+    """
+    Returns the token for the specified provider name from TOKEN_REGISTRY.
+    Returns None if not found.
+    """
+    return TOKEN_REGISTRY.get(provider_name)
 
 @cache
 def get_md_lang(lang: str) -> str | None:

@@ -222,7 +222,7 @@ class VenusEvaluator:
         # Prepare the API client
         client = InferenceClient(
             provider=inference_provider if inference_provider else None, 
-            api_key=os.environ.get("HF_INFER_TOKEN"), 
+            api_key=utils.get_token(inference_provider), 
             base_url='http://localhost:8000/v1' if not inference_provider else None
         )
         
@@ -424,11 +424,18 @@ if __name__ == "__main__":
     # venus_evaluator.venus_distribution_pipeline()
 
     # Evaluate the model
-    venus_evaluator.venus_evalution_pipeline(model_name="google/gemma-3-27b-it", dataset_split_name="gemma_3_27b", inference_provider="nebius", data_precentage="1%", data_multiply=64, mode="G")
-    # venus_evaluator.venus_evalution_pipeline(model_name="meta-llama/Llama-3.3-70B-Instruct", dataset_split_name="llama_3_3_70b_instruct", inference_provider="together", data_precentage="1%", data_multiply=64, mode="G")
-    # venus_evaluator.venus_evalution_pipeline(model_name="meta-llama/Llama-3.1-8B-Instruct", dataset_split_name="llama_3_1_8b_instruct", inference_provider="nebius", data_precentage="1%", data_multiply=64, mode="G")
-    # venus_evaluator.venus_evalution_pipeline(model_name="meta-llama/Llama-3.1-405B-Instruct", dataset_split_name="llama_3_1_405b_instruct", inference_provider="nebius", data_precentage="1%", data_multiply=64, mode="G")
-    # venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-Coder-32B-Instruct", dataset_split_name="qwen_2_5_coder_32b_instruct", inference_provider="nebius", data_precentage="1%", data_multiply=64, mode="G")
-    # venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-Coder-7B-Instruct", dataset_split_name="qwen_2_5_coder_7b_instruct", inference_provider="nebius", data_precentage="1%", data_multiply=64, mode="G")
-    # venus_evaluator.venus_evalution_pipeline(model_name="deepseek-ai/DeepSeek-V3-0324", dataset_split_name="deepseek_v3", inference_provider="nebius", data_precentage="1%", data_multiply=64, mode="G")
-    venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-1.5B-Instruct", dataset_split_name="qwen_2_5-1.5_b-instruct", inference_provider=None, data_precentage="1%", data_multiply=64, mode="G")
+    # venus_evaluator.venus_evalution_pipeline(model_name="google/gemma-3-27b-it", dataset_split_name="gemma_3_27b", inference_provider="nebius", data_precentage="50%", data_multiply=64, mode="G")
+    # venus_evaluator.venus_evalution_pipeline(model_name="meta-llama/Llama-3.3-70B-Instruct", dataset_split_name="llama_3_3_70b_instruct", inference_provider="together", data_precentage="50%", data_multiply=64, mode="G")
+    # venus_evaluator.venus_evalution_pipeline(model_name="meta-llama/Llama-3.1-8B-Instruct", dataset_split_name="llama_3_1_8b_instruct", inference_provider="nebius", data_precentage="50%", data_multiply=64, mode="G")
+    
+    # venus_evaluator.venus_evalution_pipeline(model_name="meta-llama/Llama-3.1-405B-Instruct", dataset_split_name="llama_3_1_405b_instruct", inference_provider="nebius", data_precentage="50%", data_multiply=64, mode="G")
+    # venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-Coder-32B-Instruct", dataset_split_name="qwen_2_5_coder_32b_instruct", inference_provider="nebius", data_precentage="50%", data_multiply=64, mode="G")
+    # venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-Coder-7B-Instruct", dataset_split_name="qwen_2_5_coder_7b_instruct", inference_provider="nebius", data_precentage="50%", data_multiply=64, mode="G")
+    # venus_evaluator.venus_evalution_pipeline(model_name="deepseek-ai/DeepSeek-V3-0324", dataset_split_name="deepseek_v3", inference_provider="nebius", data_precentage="50%", data_multiply=64, mode="G")
+    # venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-1.5B-Instruct", dataset_split_name="qwen_2_5-1.5_b-instruct", inference_provider=None, data_precentage="1%", data_multiply=64, mode="G")
+
+    
+    
+
+    
+
