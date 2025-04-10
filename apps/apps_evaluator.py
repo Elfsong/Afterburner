@@ -201,11 +201,12 @@ class AppsEvaluator:
         print(f"[+] Processing Model: {model_name} [{dataset_split_name}] in [{data_precentage}] - {data_multiply} - {mode} - {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}")
         # Generating solutions (G)
         if mode in ["G", "G+E"]:
-            apps_dataset = load_dataset("Elfsong/APPS_Verfied", split=f"train[:{data_precentage}]")
+            apps_dataset = load_dataset("Elfsong/APPS_Python", split=f"test[:{data_precentage}]")
             test_packs = list()
             for instance in tqdm(apps_dataset, desc='Generating solutions'):
                 try:
                     generated_solution = self.apps_generation(inference_provider, model_name, instance, self.lang, temperature=0, max_token=16384)
+                    time.sleep(1)
                 except Exception as e:
                     print(f"[-] Generation Error: {e}")
                     generated_solution = ""
@@ -216,7 +217,7 @@ class AppsEvaluator:
         
         # Parallel Evaluation (E)
         if mode in ["E", "G+E"]:
-            venus_dataset = load_dataset("Elfsong/APPS_Verfied", split=f"train[:{data_precentage}]")
+            venus_dataset = load_dataset("Elfsong/APPS_Python", split=f"test[:{data_precentage}]")
             code_generation_dataset = load_dataset("Elfsong/APPS_Model_Evaluation", dataset_split_name, split="train")
             test_packs = [(code['solution'], instance, self.case_multiply, self.monolith_timeout) for code, instance in zip(code_generation_dataset, venus_dataset)]
             test_packs = test_packs * data_multiply
@@ -356,13 +357,14 @@ if __name__ == "__main__":
     apps_evaluator = AppsEvaluator(lang="python3", monolith_timeout=90, case_multiply=1024, number_of_workers=81)
     # evaluator.apps_distribution_pipeline()
     
-    apps_evaluator.apps_evaluation_pipeline(model_name="google/gemma-3-27b-it", dataset_split_name="gemma_3_27b", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="G")
-    apps_evaluator.apps_evaluation_pipeline(model_name="meta-llama/Llama-3.3-70B-Instruct", dataset_split_name="llama_3_3_70b_instruct", inference_provider="together", data_precentage="100%", data_multiply=16, mode="G")
-    apps_evaluator.apps_evaluation_pipeline(model_name="meta-llama/Llama-3.1-8B-Instruct", dataset_split_name="llama_3_1_8b_instruct", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="G")
-    apps_evaluator.apps_evaluation_pipeline(model_name="meta-llama/Llama-3.1-405B-Instruct", dataset_split_name="llama_3_1_405b_instruct", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="G")
-    apps_evaluator.apps_evaluation_pipeline(model_name="Qwen/Qwen2.5-Coder-32B-Instruct", dataset_split_name="qwen_2_5_coder_32b_instruct", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="G")
-    apps_evaluator.apps_evaluation_pipeline(model_name="Qwen/Qwen2.5-Coder-7B-Instruct", dataset_split_name="qwen_2_5_coder_7b_instruct", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="G")
-    apps_evaluator.apps_evaluation_pipeline(model_name="deepseek-ai/DeepSeek-V3-0324", dataset_split_name="deepseek_v3", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="G")
-    apps_evaluator.apps_evaluation_pipeline(model_name="claude-3-7-sonnet-20250219", dataset_split_name="claude_3_7_sonnet", inference_provider="claude", data_precentage="100%", data_multiply=16, mode="G") 
-    apps_evaluator.apps_evaluation_pipeline(model_name="deepseek-ai/DeepSeek-V3-0324", dataset_split_name="deepseek_v3", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="G")
+    # apps_evaluator.apps_evaluation_pipeline(model_name="meta-llama/Llama-3.3-70B-Instruct", dataset_split_name="llama_3_3_70b_instruct", inference_provider="together", data_precentage="20%", data_multiply=16, mode="G")
+    # apps_evaluator.apps_evaluation_pipeline(model_name="meta-llama/Llama-3.1-8B-Instruct", dataset_split_name="llama_3_1_8b_instruct", inference_provider="nebius", data_precentage="20%", data_multiply=16, mode="G")
+    # apps_evaluator.apps_evaluation_pipeline(model_name="meta-llama/Llama-3.1-405B-Instruct", dataset_split_name="llama_3_1_405b_instruct", inference_provider="nebius", data_precentage="20%", data_multiply=16, mode="G")
+    # apps_evaluator.apps_evaluation_pipeline(model_name="Qwen/Qwen2.5-Coder-32B-Instruct", dataset_split_name="qwen_2_5_coder_32b_instruct", inference_provider="nebius", data_precentage="20%", data_multiply=16, mode="G")
+    # apps_evaluator.apps_evaluation_pipeline(model_name="Qwen/Qwen2.5-Coder-7B-Instruct", dataset_split_name="qwen_2_5_coder_7b_instruct", inference_provider="nebius", data_precentage="20%", data_multiply=16, mode="G")
+    # apps_evaluator.apps_evaluation_pipeline(model_name="deepseek-ai/DeepSeek-V3-0324", dataset_split_name="deepseek_v3", inference_provider="nebius", data_precentage="20%", data_multiply=16, mode="G")
+    # apps_evaluator.apps_evaluation_pipeline(model_name="claude-3-7-sonnet-20250219", dataset_split_name="claude_3_7_sonnet", inference_provider="claude", data_precentage="20%", data_multiply=16, mode="G") 
+    # apps_evaluator.apps_evaluation_pipeline(model_name="deepseek-ai/DeepSeek-V3-0324", dataset_split_name="deepseek_v3", inference_provider="nebius", data_precentage="20%", data_multiply=16, mode="G")
+    apps_evaluator.apps_evaluation_pipeline(model_name="Qwen/Qwen2.5-3B-Instruct", dataset_split_name="qwen_2_5_3b_instruct", inference_provider="local", data_precentage="100%", data_multiply=16, mode="G")
+
 

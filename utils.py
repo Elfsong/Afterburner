@@ -20,6 +20,7 @@ TOKEN_REGISTRY = {
     "huggingface": os.getenv("HUGGINGFACE_TOKEN"),
     "openai": os.getenv("OPENAI_TOKEN"),
     "claude": os.getenv("CLAUDE_TOKEN"),
+    "local": "NONE",
 }
 
 LANGUAGE_REGISTRY = {
@@ -79,7 +80,7 @@ def get_url(provider_name: str) -> str | None:
     if provider_name == "claude":
         return "https://api.anthropic.com/v1/"
     elif provider_name == "local":
-        return "'http://localhost:8000/v1"
+        return "http://localhost:8000/v1"
     else:
         return None
 
@@ -134,7 +135,7 @@ def code_generation(inference_provider, model_name, prompt, temperature, max_tok
     if inference_provider == "openai" and model_name == "o3-mini":
         client = OpenAI(api_key=get_token(inference_provider))
         response = client.responses.create(
-            model="o1",
+            model=model_name,
             input=[{"role": "user","content": [{"type": "input_text", "text": prompt}]}],
             text={"format": {"type": "text"}},
             reasoning={"effort": "low"},
@@ -142,6 +143,17 @@ def code_generation(inference_provider, model_name, prompt, temperature, max_tok
             max_completion_tokens=max_tokens
         )
         generated_solution = response.output_text
+        code = extract_code_blocks(generated_solution)[0]['code']
+        return code
+    elif inference_provider == "local":
+        client = OpenAI(base_url=get_url(inference_provider), api_key=get_token(inference_provider))
+        completion = client.chat.completions.create(
+            model=model_name,
+            messages=[{"role": "user","content": prompt}],
+            temperature=temperature,
+            max_completion_tokens=max_tokens
+        )
+        generated_solution = completion.choices[0].message.content
         code = extract_code_blocks(generated_solution)[0]['code']
         return code
     else:
