@@ -210,7 +210,8 @@ class VenusEvaluator:
         finally:
             return response
 
-    def venus_generation(self, inference_provider, model_name, instance: Any, target_lang: str, temperature=0, max_token=4096) -> str:
+    @classmethod
+    def venus_generation(cls, inference_provider, model_name, instance: Any, target_lang: str, temperature=0, max_token=4096) -> str:
         # Prepare the prompt
         prompt = GENERATION_TEMPLATE.format(
             target_lang=target_lang,
@@ -402,7 +403,8 @@ class VenusEvaluator:
             scores["memory_score"] = scores["memory_s"] / scores["total_c"]
             scores["integral_score"] = scores["integral_s"] / scores["total_c"]
 
-            print(f"[{dataset_split_name}] Pass@1:{scores['pass_score']:.2f} Time_Precent:{scores['time_score']:.2f} Memory_Precent:{scores['memory_score']:.2f} Integral_Precent:{scores['integral_score']:.2f}")
+            result = (f"[{dataset_split_name}] Pass@1:{scores['pass_score']:.2f} Time_Precent:{scores['time_score']:.2f} Memory_Precent:{scores['memory_score']:.2f} Integral_Precent:{scores['integral_score']:.2f}")
+            print(result)
                 
             # Save the results
             ds = Dataset.from_list(instance_list)
@@ -410,7 +412,7 @@ class VenusEvaluator:
         print("========================================================")
 
 if __name__ == "__main__":
-    venus_evaluator = VenusEvaluator(lang="python3", number_of_workers=64, case_multiply=64, monolith_timeout=90)
+    venus_evaluator = VenusEvaluator(lang="python3", number_of_workers=81, case_multiply=64, monolith_timeout=90)
 
     # Get the distribution of each problem (it takes a long long time, be careful if you truely want to run it)
     # venus_evaluator.venus_distribution_pipeline()
@@ -423,10 +425,10 @@ if __name__ == "__main__":
     venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-Coder-32B-Instruct", dataset_split_name="qwen_2_5_coder_32b_instruct", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="E")
     venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-Coder-7B-Instruct", dataset_split_name="qwen_2_5_coder_7b_instruct", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="E")
     venus_evaluator.venus_evalution_pipeline(model_name="deepseek-ai/DeepSeek-V3-0324", dataset_split_name="deepseek_v3", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="E")
-    venus_evaluator.venus_evalution_pipeline(model_name="microsoft/Phi-3-mini-4k-instruct", dataset_split_name="phi_3_mini_4k_instruct", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_evalution_pipeline(model_name="microsoft/Phi-3-mini-4k-instruct", dataset_split_name="phi_3_mini_4k_instruct", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="E")
     venus_evaluator.venus_evalution_pipeline(model_name="gpt-4o", dataset_split_name="gpt_4o", inference_provider="openai", data_precentage="100%", data_multiply=16, mode="E")
-    venus_evaluator.venus_evalution_pipeline(model_name="claude-3-7-sonnet-20250219", dataset_split_name="claude_3_7_sonnet", inference_provider="claude", data_precentage="100%", data_multiply=16, mode="E")
-    venus_evaluator.venus_evalution_pipeline(model_name="claude-3-5-haiku-20241022", dataset_split_name="claude_3_5_haiku", inference_provider="claude", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_evalution_pipeline(model_name="claude-3-7-sonnet-20250219", dataset_split_name="claude_3_7_sonnet", inference_provider="claude", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_evalution_pipeline(model_name="claude-3-5-haiku-20241022", dataset_split_name="claude_3_5_haiku", inference_provider="claude", data_precentage="100%", data_multiply=16, mode="E")
     # venus_evaluator.venus_evalution_pipeline(model_name="o3-mini", dataset_split_name="o3_mini", inference_provider="openai", data_precentage="100%", data_multiply=16, mode="E")
     # venus_evaluator.venus_evalution_pipeline(model_name="Qwen/QwQ-32B", dataset_split_name="qwq_32b", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="E")
     
