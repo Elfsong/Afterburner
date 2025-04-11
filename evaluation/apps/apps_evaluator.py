@@ -14,7 +14,6 @@ import textwrap
 from tqdm import tqdm
 from typing import Any, List
 from tabulate import tabulate
-from monolith import monolith
 from datasets import load_dataset, Dataset
 from multiprocessing.dummy import Pool as ThreadPool
 
@@ -62,7 +61,7 @@ class TestSolution(unittest.TestCase):
 def make_test_function(input_data, expected):
     def test_function(self):
         actual = self.run_io_fun(input_data)
-        self.assertEqual(expected, actual)
+        self.assertEqual(expected.strip(), actual.strip())
     return test_function
 
 test_case_list = {test_case_list}
@@ -89,50 +88,6 @@ class AppsEvaluator:
         self.monolith_timeout = monolith_timeout
         self.case_multiply = case_multiply
         self.number_of_workers = number_of_workers
-        self.monolith_client = monolith.Monolith(backend_url='https://monolith.cool', retries=3)
-    
-    @classmethod
-    def apps_async_evaluation(cls, solution_code: str, test_cases: List, timeout: int) -> dict:
-        response = {
-            'passed': False, 
-            'time': float('inf'), 
-            'memory': float('inf'), 
-            'integral': float('inf'), 
-            'status': 'error',
-        }
-        
-        try:            
-            monolith_client = monolith.Monolith(backend_url='https://monolith.cool', retries=3)
-            
-            # Construct Test Code
-            solution_code = textwrap.indent(solution_code.strip(), "\t")
-            test_case_list_str = json.dumps(test_cases, indent=4)
-            test_code = EVALUATION_TEMPLATE.format(solution_code=solution_code, test_case_list=test_case_list_str, case_multiply=100)
-            
-            # Submit Test Code to Monolith
-            task_id = monolith_client.post_code_submit(lang="python", libs=[], code=test_code, timeout=timeout, profiling=True)["task_id"]
-            
-            # Wait for Test Code to Finish
-            for _ in range(timeout):
-                time.sleep(2)
-                result = monolith_client.get_code_result(task_id)
-                if result["status"] != "processing":
-                    break
-            
-            # Check if Test Code Passed
-            response['status'] = result['status']
-
-            # Update Response
-            if result["status"] == "done":
-                response['passed'] = True if result['output_dict']['stdout'] == 'Success\n' else False
-                response['time'] = result['output_dict']['duration']
-                response['memory'] = result['output_dict']['peak_memory']
-                response['integral'] = result['output_dict']['integral']
-        except Exception as e:
-            response['status'] = 'error'
-            print(f"Evaluation Error: {e}", e.with_traceback(None))
-        finally:
-            return response
     
     @classmethod
     def apps_sync_evaluation(cls, solution_code: str, instance: Any, case_multiply: int, timeout: int) -> dict:
@@ -141,7 +96,7 @@ class AppsEvaluator:
             # Construct Test Code
             solution_code = textwrap.indent(solution_code.strip(), "\t")
             test_case_list_str = instance['test_cases']
-            test_code = EVALUATION_TEMPLATE.format(solution_code=solution_code, test_case_list=test_case_list_str, case_multiply=100)
+            test_code = EVALUATION_TEMPLATE.format(solution_code=solution_code, test_case_list=test_case_list_str, case_multiply=case_multiply)
             
             # with open(f"test_code_{instance['problem_id']}.py", "w") as f:
             #     f.write(test_code)
@@ -265,7 +220,7 @@ class AppsEvaluator:
             scores["memory_score"] = scores["memory_s"] / scores["total_c"]
             scores["integral_score"] = scores["integral_s"] / scores["total_c"]
 
-            print(f"[{dataset_split_name}] Pass@1:{scores['pass_score']:.2f} Time_Precent:{scores['time_score']:.2f} Memory_Precent:{scores['memory_score']:.2f} Integral_Precent:{scores['integral_score']:.2f}")
+            print(f"APPS [{dataset_split_name}] Pass@1:{scores['pass_score']:.2f} Time_Precent:{scores['time_score']:.2f} Memory_Precent:{scores['memory_score']:.2f} Integral_Precent:{scores['integral_score']:.2f}")
                 
             # Save the results
             ds = Dataset.from_list(instance_list)
@@ -354,7 +309,7 @@ class AppsEvaluator:
             
 
 if __name__ == "__main__":
-    apps_evaluator = AppsEvaluator(lang="python3", monolith_timeout=90, case_multiply=1024, number_of_workers=81)
+    apps_evaluator = AppsEvaluator(lang="python3", monolith_timeout=90, case_multiply=100, number_of_workers=81)
     # evaluator.apps_distribution_pipeline()
     
     # apps_evaluator.apps_evaluation_pipeline(model_name="meta-llama/Llama-3.3-70B-Instruct", dataset_split_name="llama_3_3_70b_instruct", inference_provider="together", data_precentage="20%", data_multiply=16, mode="G")
@@ -365,6 +320,6 @@ if __name__ == "__main__":
     # apps_evaluator.apps_evaluation_pipeline(model_name="deepseek-ai/DeepSeek-V3-0324", dataset_split_name="deepseek_v3", inference_provider="nebius", data_precentage="20%", data_multiply=16, mode="G")
     # apps_evaluator.apps_evaluation_pipeline(model_name="claude-3-7-sonnet-20250219", dataset_split_name="claude_3_7_sonnet", inference_provider="claude", data_precentage="20%", data_multiply=16, mode="G") 
     # apps_evaluator.apps_evaluation_pipeline(model_name="deepseek-ai/DeepSeek-V3-0324", dataset_split_name="deepseek_v3", inference_provider="nebius", data_precentage="20%", data_multiply=16, mode="G")
-    apps_evaluator.apps_evaluation_pipeline(model_name="Qwen/Qwen2.5-3B-Instruct", dataset_split_name="qwen_2_5_3b_instruct", inference_provider="local", data_precentage="100%", data_multiply=16, mode="G")
+    apps_evaluator.apps_evaluation_pipeline(model_name="Qwen/Qwen2.5-3B-Instruct", dataset_split_name="qwen_2_5_3b_instruct", inference_provider="local", data_precentage="100%", data_multiply=16, mode="E")
 
 

@@ -16,7 +16,6 @@ import textwrap
 import requests
 from tqdm import tqdm
 from tabulate import tabulate
-from monolith import monolith
 from typing import Any, List, final
 from datasets import load_dataset, Dataset
 from multiprocessing.dummy import Pool as ThreadPool
@@ -116,64 +115,20 @@ class VenusEvaluator:
         self.case_multiply = case_multiply
         self.monolith_timeout = monolith_timeout
         self.number_of_workers = number_of_workers
-        self.monolith_client = monolith.Monolith(backend_url='https://monolith.cool', retries=3)
-
-    @classmethod
-    def venus_async_evaluation(cls, solution_code: str, instance: Any, case_multiply: int, timeout: int) -> dict:
-        response = {'passed': False, 'time': float('inf'), 'memory': float('inf'), 'integral': float('inf'), 'status': 'error'}
-        try:
-            monolith_client = monolith.Monolith(backend_url='https://monolith.cool', retries=2)
-
-            # Construct Test Code
-            test_case_evaluator = instance['test_case_evaluator'].strip()
-            test_case_runners = instance['test_case_runners']
-            test_cases = json.loads(instance['test_cases'])
-
-            solution_code = test_case_runners['python3'].replace('==Code Submission==', solution_code.strip())
-            solution_code = textwrap.indent(solution_code.strip(), "    ")
-            test_case_evaluator = textwrap.indent(test_case_evaluator, "    ")
-            test_case_list_str = json.dumps(test_cases, indent=4)
-
-            test_code = EVALUATION_TEMPLATE.format(solution_code=solution_code, test_case_evaluator=test_case_evaluator, test_case_list=test_case_list_str, case_multiply=case_multiply)
-
-            # Submit Test Code to Monolith
-            monolith_response = monolith_client.post_code_submit(lang="python", libs=[], code=test_code, timeout=timeout, profiling=True)
-            task_id = monolith_response['task_id']
-            if task_id is None:
-                raise requests.exceptions.RequestException("Task ID is None" + "->" + str(monolith_response))
-            
-            # Wait for Test Code to Finish
-            for _ in range(timeout):
-                time.sleep(2)
-                result = monolith_client.get_code_result(task_id)
-                if result["status"] != "processing":
-                    break
-            
-            # Check if Test Code Passed
-            response['status'] = result['status']
-
-            if result["status"] == "done":
-                response['passed'] = True if result['output_dict']['stdout'] == 'Success\n' else False
-                response['time'] = result['output_dict']['duration']
-                response['memory'] = result['output_dict']['peak_memory']
-                response['integral'] = result['output_dict']['integral']
-        except Exception as e:
-            print("Evaluation Error: ", e)
-            response['status'] = 'error'
-        finally:
-            return response
     
     @classmethod
     def venus_sync_evaluation(cls, solution_code: str, instance: Any, case_multiply: int, timeout: int) -> dict:
         response = {'passed': False, 'time': float('inf'), 'memory': float('inf'), 'integral': float('inf'), 'status': 'error'}
         try:
             # Construct Test Code
-            test_case_evaluator = instance['test_case_evaluator'].strip()
             test_case_runners = instance['test_case_runners']
-            test_cases = json.loads(instance['test_cases'])
             solution_code = test_case_runners.replace('==Code Submission==', solution_code.strip())
             solution_code = textwrap.indent(solution_code.strip(), "    ")
+            
+            test_case_evaluator = instance['test_case_evaluator'].strip()
             test_case_evaluator = textwrap.indent(test_case_evaluator, "    ")
+            
+            test_cases = json.loads(instance['test_cases'])
             test_case_list_str = json.dumps(test_cases, indent=4)
 
             test_code = EVALUATION_TEMPLATE.format(solution_code=solution_code, test_case_evaluator=test_case_evaluator, test_case_list=test_case_list_str, case_multiply=case_multiply)
@@ -403,7 +358,7 @@ class VenusEvaluator:
             scores["memory_score"] = scores["memory_s"] / scores["total_c"]
             scores["integral_score"] = scores["integral_s"] / scores["total_c"]
 
-            result = (f"[{dataset_split_name}] Pass@1:{scores['pass_score']:.2f} Time_Precent:{scores['time_score']:.2f} Memory_Precent:{scores['memory_score']:.2f} Integral_Precent:{scores['integral_score']:.2f}")
+            result = (f"Venus [{dataset_split_name}] Pass@1:{scores['pass_score']:.2f} Time_Precent:{scores['time_score']:.2f} Memory_Precent:{scores['memory_score']:.2f} Integral_Precent:{scores['integral_score']:.2f}")
             print(result)
                 
             # Save the results
@@ -418,19 +373,23 @@ if __name__ == "__main__":
     # venus_evaluator.venus_distribution_pipeline()
 
     # Evaluate these models
-    venus_evaluator.venus_evalution_pipeline(model_name="google/gemma-3-27b-it", dataset_split_name="gemma_3_27b", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="E")
-    venus_evaluator.venus_evalution_pipeline(model_name="meta-llama/Llama-3.3-70B-Instruct", dataset_split_name="llama_3_3_70b_instruct", inference_provider="together", data_precentage="100%", data_multiply=16, mode="E")
-    venus_evaluator.venus_evalution_pipeline(model_name="meta-llama/Llama-3.1-8B-Instruct", dataset_split_name="llama_3_1_8b_instruct", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="E")
-    venus_evaluator.venus_evalution_pipeline(model_name="meta-llama/Llama-3.1-405B-Instruct", dataset_split_name="llama_3_1_405b_instruct", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="E")
-    venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-Coder-32B-Instruct", dataset_split_name="qwen_2_5_coder_32b_instruct", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="E")
-    venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-Coder-7B-Instruct", dataset_split_name="qwen_2_5_coder_7b_instruct", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="E")
-    venus_evaluator.venus_evalution_pipeline(model_name="deepseek-ai/DeepSeek-V3-0324", dataset_split_name="deepseek_v3", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_evalution_pipeline(model_name="google/gemma-3-27b-it", dataset_split_name="gemma_3_27b", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_evalution_pipeline(model_name="meta-llama/Llama-3.3-70B-Instruct", dataset_split_name="llama_3_3_70b_instruct", inference_provider="together", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_evalution_pipeline(model_name="meta-llama/Llama-3.1-8B-Instruct", dataset_split_name="llama_3_1_8b_instruct", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_evalution_pipeline(model_name="meta-llama/Llama-3.1-405B-Instruct", dataset_split_name="llama_3_1_405b_instruct", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-Coder-32B-Instruct", dataset_split_name="qwen_2_5_coder_32b_instruct", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-Coder-7B-Instruct", dataset_split_name="qwen_2_5_coder_7b_instruct", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_evalution_pipeline(model_name="deepseek-ai/DeepSeek-V3-0324", dataset_split_name="deepseek_v3", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="E")
     # venus_evaluator.venus_evalution_pipeline(model_name="microsoft/Phi-3-mini-4k-instruct", dataset_split_name="phi_3_mini_4k_instruct", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="E")
-    venus_evaluator.venus_evalution_pipeline(model_name="gpt-4o", dataset_split_name="gpt_4o", inference_provider="openai", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_evalution_pipeline(model_name="gpt-4o", dataset_split_name="gpt_4o", inference_provider="openai", data_precentage="100%", data_multiply=16, mode="E")
     # venus_evaluator.venus_evalution_pipeline(model_name="claude-3-7-sonnet-20250219", dataset_split_name="claude_3_7_sonnet", inference_provider="claude", data_precentage="100%", data_multiply=16, mode="E")
     # venus_evaluator.venus_evalution_pipeline(model_name="claude-3-5-haiku-20241022", dataset_split_name="claude_3_5_haiku", inference_provider="claude", data_precentage="100%", data_multiply=16, mode="E")
     # venus_evaluator.venus_evalution_pipeline(model_name="o3-mini", dataset_split_name="o3_mini", inference_provider="openai", data_precentage="100%", data_multiply=16, mode="E")
     # venus_evaluator.venus_evalution_pipeline(model_name="Qwen/QwQ-32B", dataset_split_name="qwq_32b", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-3B", dataset_split_name="qwen_2_5_3b", inference_provider="local", data_precentage="100%", data_multiply=16, mode="E")
+    venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-3B-Instruct", dataset_split_name="qwen_2_5_3b_instruct", inference_provider="local", data_precentage="100%", data_multiply=16, mode="E")
+
+
     
     
     
