@@ -13,4 +13,5 @@ benchmarks/benchmark.log
 .vscode/*
 venus/venus_playground.ipynb
 token.sh
-monolith/monolith/__pycache__/__init__.cpython-310.pyc
+monolith/monolith/__pycache__/*
+training/*

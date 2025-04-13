@@ -174,15 +174,21 @@ class VenusEvaluator:
             starter_code=utils.wrap_code_block(target_lang, instance['code_prompt']),
         )
 
-        model_response = utils.code_generation(
+        model_response = utils.model_inference(
             inference_provider=inference_provider,
             model_name=model_name,
             prompt=prompt,
             temperature=temperature,
             max_tokens=max_token
         )
+        
+        try:
+            code = utils.extract_code_blocks(model_response)[0]['code']
+        except Exception as e:
+            print(f"[-] No code blocks found: {model_response}")
+            code = ""
 
-        return model_response
+        return code
     
     def venus_distribution_pipeline(self):
         # Load the datasets
@@ -387,7 +393,9 @@ if __name__ == "__main__":
     # venus_evaluator.venus_evalution_pipeline(model_name="o3-mini", dataset_split_name="o3_mini", inference_provider="openai", data_precentage="100%", data_multiply=16, mode="E")
     # venus_evaluator.venus_evalution_pipeline(model_name="Qwen/QwQ-32B", dataset_split_name="qwq_32b", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="E")
     # venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-3B", dataset_split_name="qwen_2_5_3b", inference_provider="local", data_precentage="100%", data_multiply=16, mode="E")
-    venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-3B-Instruct", dataset_split_name="qwen_2_5_3b_instruct", inference_provider="local", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-3B-Instruct", dataset_split_name="qwen_2_5_3b_instruct", inference_provider="local", data_precentage="100%", data_multiply=16, mode="E")
+    venus_evaluator.venus_evalution_pipeline(model_name="/home/mingzhe/Projects/Afterburner/training/qwen_3b_sft_dpo_batch_2_ga_8_lr_4e-5/checkpoint-1200", dataset_split_name="qwen_2_5_3b_sft_dpo", inference_provider="local", data_precentage="100%", data_multiply=16, mode="G")
+
 
 
     

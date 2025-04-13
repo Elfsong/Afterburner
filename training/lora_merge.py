@@ -48,11 +48,11 @@ def upload_to_hub(merged_output_dir, hf_repo_id, commit_message):
 
 if __name__ == "__main__":    
     # ==== CONFIGURATION ====
-    base_model_path = "Qwen/Qwen2.5-3B-Instruct"
-    lora_model_path = "/home/mingzhe/Projects/LLaMA-Factory/saves/Qwen2.5-3B-Instruct/lora/qwen_3b_dpo_batch_8_lr_4e-5/checkpoint-800"
-    merged_output_dir = "./merged-qwen-3b-dpo-batch-8-lr-4e-5"
-    hf_repo_id = "Elfsong/Qwen2.5-3B-DPO-Batch-8-LR-4e-5"
-    commit_message = "Upload merged Qwen2.5-3B-DPO-Batch-8-LR-4e-5"
+    base_model_path = "Elfsong/Qwen2.5-3B-SFT-Batch-8-LR-3e-5"
+    lora_model_path = "/home/mingzhe/Projects/LLaMA-Factory/saves/Qwen2.5-3B/lora/qwen_3b_sft_dpo_batch_2_ga_8_lr_4e-5/checkpoint-1200"
+    merged_output_dir = "./qwen_3b_sft_dpo_batch_2_ga_8_lr_4e-5/checkpoint-1200"
+    hf_repo_id = "Elfsong/qwen_3b_sft_dpo_batch_2_ga_8_lr_4e5_checkpoint_1200"
+    commit_message = "Upload merged qwen_3b_sft_dpo_batch_2_ga_8_lr_4e5_checkpoint_1200"
     # ========================
     merge_and_save(base_model_path, lora_model_path, merged_output_dir, hf_repo_id, commit_message)
     upload_to_hub(merged_output_dir, hf_repo_id, commit_message)

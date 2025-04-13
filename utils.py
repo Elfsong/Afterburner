@@ -81,6 +81,8 @@ def get_url(provider_name: str) -> str | None:
         return "https://api.anthropic.com/v1/"
     elif provider_name == "local":
         return "http://localhost:8000/v1"
+    elif provider_name == "nebius":
+        return "https://api.studio.nebius.com/v1/"
     else:
         return None
 
@@ -131,7 +133,7 @@ def percentage_position(num: float, lst: list[float]) -> float:
     percentage = 1 - (insert_pos / len(lst))
     return percentage
 
-def code_generation(inference_provider, model_name, prompt, temperature, max_tokens):
+def model_inference(inference_provider, model_name, prompt, temperature, max_tokens):
     if inference_provider == "openai" and model_name == "o3-mini":
         client = OpenAI(api_key=get_token(inference_provider))
         response = client.responses.create(
@@ -142,9 +144,7 @@ def code_generation(inference_provider, model_name, prompt, temperature, max_tok
             tools=[],
             max_completion_tokens=max_tokens
         )
-        generated_solution = response.output_text
-        code = extract_code_blocks(generated_solution)[0]['code']
-        return code
+        return response.output_text
     elif inference_provider == "local":
         client = OpenAI(base_url=get_url(inference_provider), api_key=get_token(inference_provider))
         completion = client.chat.completions.create(
@@ -153,9 +153,7 @@ def code_generation(inference_provider, model_name, prompt, temperature, max_tok
             temperature=temperature,
             max_completion_tokens=max_tokens
         )
-        generated_solution = completion.choices[0].message.content
-        code = extract_code_blocks(generated_solution)[0]['code']
-        return code
+        return completion.choices[0].message.content
     else:
         # Prepare the API client
         client = InferenceClient(
@@ -172,11 +170,7 @@ def code_generation(inference_provider, model_name, prompt, temperature, max_tok
             max_tokens=max_tokens
         )
 
-        response = completion.choices[0].message.content
-        solution = response.split("</think>")[-1]
-        code = extract_code_blocks(solution)[0]['code']
-
-        return code
+        return completion.choices[0].message.content
 
 def extract_solution_call(cpp_code: str) -> str:
     pattern = re.compile(r'\bsol\.(\w+)\s*\(([^)]*)\)', re.DOTALL)
