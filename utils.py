@@ -177,3 +177,44 @@ def code_generation(inference_provider, model_name, prompt, temperature, max_tok
         code = extract_code_blocks(solution)[0]['code']
 
         return code
+
+def extract_solution_call(cpp_code: str) -> str:
+    pattern = re.compile(r'\bsol\.(\w+)\s*\(([^)]*)\)', re.DOTALL)
+    match = pattern.search(cpp_code)
+    if match:
+        func_name = match.group(1)
+        args = match.group(2).replace("\n", " ").strip()
+        return f"{func_name}({args})"
+    return ""
+
+def extract_cpp_functions(source_code: str, function_names: list) -> dict:
+    functions = {}
+    pattern = re.compile(rf'\b(?:[\w:<>,&*]+\s+)+({"|".join(function_names)})\s*\(([^)]*)\)\s*{{')
+
+    pos = 0
+    while pos < len(source_code):
+        match = pattern.search(source_code, pos)
+        if not match:
+            break
+        func_name = match.group(1)
+        start = match.start()
+        brace_count = 0
+        i = match.end() - 1  # Start from the opening brace
+
+        # Scan forward to find matching closing brace
+        while i < len(source_code):
+            if source_code[i] == '{':
+                brace_count += 1
+            elif source_code[i] == '}':
+                brace_count -= 1
+                if brace_count == 0:
+                    func_body = source_code[start:i+1]
+                    functions[func_name] = func_body.strip()
+                    pos = i + 1
+                    break
+            i += 1
+        else:
+            # Unbalanced braces
+            break
+
+    return functions
