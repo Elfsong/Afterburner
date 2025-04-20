@@ -85,12 +85,12 @@ if __name__ == '__main__':
 class AppsEvaluator:
     def __init__(self, lang, monolith_timeout, case_multiply, number_of_workers):
         self.lang = lang
-        self.monolith_timeout = monolith_timeout
         self.case_multiply = case_multiply
+        self.monolith_timeout = monolith_timeout
         self.number_of_workers = number_of_workers
     
     @classmethod
-    def apps_sync_evaluation(cls, solution_code: str, instance: Any, case_multiply: int, timeout: int) -> dict:
+    def apps_evaluation(cls, solution_code: str, instance: Any, case_multiply: int, timeout: int) -> dict:
         response = {'passed': False, 'time': float('inf'), 'memory': float('inf'), 'integral': float('inf'), 'status': 'error'}
         try:
             # Construct Test Code
@@ -142,15 +142,20 @@ class AppsEvaluator:
             starter_code=utils.wrap_code_block(target_lang, instance['code_prompt']),
         )
 
-        model_response = utils.code_generation(
+        model_response = utils.model_inference(
             inference_provider=inference_provider,
             model_name=model_name,
             prompt=prompt,
             temperature=temperature,
             max_tokens=max_token
         )
-
-        return model_response
+        
+        try:
+            code = utils.extract_code_blocks(model_response)[0]['code']
+        except Exception as e:
+            print(f"[-] No code blocks found. Will return the whole response.")
+            code = model_response
+        return code
     
     def apps_evaluation_pipeline(self, model_name, dataset_split_name, inference_provider, data_precentage="100%", data_multiply=1, mode="G+E"):            
         print(f"[+] Processing Model: {model_name} [{dataset_split_name}] in [{data_precentage}] - {data_multiply} - {mode} - {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}")
@@ -180,7 +185,7 @@ class AppsEvaluator:
             results = list()
             with ThreadPool(self.number_of_workers) as pool:
                 with tqdm(total=len(test_packs), desc='Solution Evaluation') as pbar:
-                    for result in pool.imap(lambda args: AppsEvaluator.apps_sync_evaluation(*args), test_packs):
+                    for result in pool.imap(lambda args: AppsEvaluator.apps_evaluation(*args), test_packs):
                         results.append(result)
                         pbar.update(1)
 
@@ -315,11 +320,13 @@ if __name__ == "__main__":
     # apps_evaluator.apps_evaluation_pipeline(model_name="meta-llama/Llama-3.3-70B-Instruct", dataset_split_name="llama_3_3_70b_instruct", inference_provider="together", data_precentage="20%", data_multiply=16, mode="G")
     # apps_evaluator.apps_evaluation_pipeline(model_name="meta-llama/Llama-3.1-8B-Instruct", dataset_split_name="llama_3_1_8b_instruct", inference_provider="nebius", data_precentage="20%", data_multiply=16, mode="G")
     # apps_evaluator.apps_evaluation_pipeline(model_name="meta-llama/Llama-3.1-405B-Instruct", dataset_split_name="llama_3_1_405b_instruct", inference_provider="nebius", data_precentage="20%", data_multiply=16, mode="G")
-    # apps_evaluator.apps_evaluation_pipeline(model_name="Qwen/Qwen2.5-Coder-32B-Instruct", dataset_split_name="qwen_2_5_coder_32b_instruct", inference_provider="nebius", data_precentage="20%", data_multiply=16, mode="G")
+    # apps_evaluator.apps_evaluation_pipeline(model_name="Qwen/Qwen2.5-Coder-32B-Instruct", dataset_split_name="qwen_2_5_coder_32b_instruct", inference_provider="nebius", data_precentage="32", data_multiply=16, mode="G+E")
     # apps_evaluator.apps_evaluation_pipeline(model_name="Qwen/Qwen2.5-Coder-7B-Instruct", dataset_split_name="qwen_2_5_coder_7b_instruct", inference_provider="nebius", data_precentage="20%", data_multiply=16, mode="G")
     # apps_evaluator.apps_evaluation_pipeline(model_name="deepseek-ai/DeepSeek-V3-0324", dataset_split_name="deepseek_v3", inference_provider="nebius", data_precentage="20%", data_multiply=16, mode="G")
     # apps_evaluator.apps_evaluation_pipeline(model_name="claude-3-7-sonnet-20250219", dataset_split_name="claude_3_7_sonnet", inference_provider="claude", data_precentage="20%", data_multiply=16, mode="G") 
     # apps_evaluator.apps_evaluation_pipeline(model_name="deepseek-ai/DeepSeek-V3-0324", dataset_split_name="deepseek_v3", inference_provider="nebius", data_precentage="20%", data_multiply=16, mode="G")
-    apps_evaluator.apps_evaluation_pipeline(model_name="Qwen/Qwen2.5-3B-Instruct", dataset_split_name="qwen_2_5_3b_instruct", inference_provider="local", data_precentage="100%", data_multiply=16, mode="E")
+    # apps_evaluator.apps_evaluation_pipeline(model_name="Qwen/Qwen2.5-3B-Instruct", dataset_split_name="qwen_2_5_3b_instruct", inference_provider="local", data_precentage="5%", data_multiply=16, mode="E")
+    apps_evaluator.apps_evaluation_pipeline(model_name="o3-mini", dataset_split_name="o3_mini", inference_provider="openai", data_precentage="5%", data_multiply=16, mode="E")
+
 
 

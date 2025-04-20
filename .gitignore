@@ -15,3 +15,5 @@ venus/venus_playground.ipynb
 token.sh
 monolith/monolith/__pycache__/*
 training/*
+evaluation/venus/correct_templates/*
+evaluation/venus/cpp_templates/*
