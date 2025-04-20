@@ -17,3 +17,4 @@ monolith/monolith/__pycache__/*
 training/*
 evaluation/venus/correct_templates/*
 evaluation/venus/cpp_templates/*
+evaluation/venus/cpp_batch.py
