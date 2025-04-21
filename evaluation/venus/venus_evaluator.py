@@ -191,6 +191,30 @@ class VenusEvaluator:
             code = model_response
         return code
     
+    @classmethod
+    def venus_afterburner_generation(cls, inference_provider, model_name, instance: Any, original_solution: str, target_lang: str, temperature=0, max_token=4096) -> str:
+        # Prepare the prompt
+        prompt = GENERATION_TEMPLATE.format(
+            target_lang=target_lang,
+            question=instance['question_content'],
+            starter_code=utils.wrap_code_block(target_lang, instance['code_prompt']),
+        )
+
+        model_response = utils.model_inference(
+            inference_provider=inference_provider,
+            model_name=model_name,
+            prompt=prompt,
+            temperature=temperature,
+            max_tokens=max_token
+        )
+        
+        try:
+            code = utils.extract_code_blocks(model_response)[0]['code']
+        except Exception as e:
+            print(f"[-] No code blocks found. Will return the whole response.")
+            code = model_response
+        return code
+    
     def venus_distribution_pipeline(self):
         # Load the datasets
         venus_dataset = load_dataset("Elfsong/Venus", "python3", split="train")
@@ -299,11 +323,94 @@ class VenusEvaluator:
             new_leetcode_dataset = Dataset.from_list(new_leetcode_data)
             new_leetcode_dataset.push_to_hub("Elfsong/Venus_python", 'verified', split=f"{i}_{(i+1)}", private=True)
 
+    def venus_afterburner_evaluation_pipeline(self, afterburner_model_name, dataset_split_name, inference_provider, data_precentage="100%", data_multiply=1, mode="G+E"):
+        print(f"[+] Processing Model: [Afterburner] {afterburner_model_name} [{dataset_split_name}] in [{data_precentage}] - {data_multiply} - {mode} - {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}")
+
+        # Meta Dataset
+        venus_dataset = load_dataset("Elfsong/Venus_Python", split=f"test[:{data_precentage}]")
+
+        # Original Generation Dataset
+        generation_dataset = load_dataset("Elfsong/Venus_Model_Evaluation", dataset_split_name, split="train")
+
+        # Generation (G)
+        if mode in ["G", "G+E"]:
+            test_packs = list()
+            for instance in tqdm(venus_dataset, desc='Generating solutions'):
+                try:
+                    original_solution = generation_dataset.filter(lambda x: x['problem_id'] == int(instance['problem_id']))['solution'][0]
+                    generated_solution = self.venus_afterburner_generation(inference_provider, afterburner_model_name, instance, original_solution, self.lang, temperature=0, max_token=16384)
+                except Exception as e:
+                    print(f"[-] Generation Error: {e}")
+                    generated_solution = ""
+                finally:
+                    test_packs.append({"problem_id": int(instance['problem_id']), "solution": generated_solution})
+            ds = Dataset.from_list(test_packs)
+            ds.push_to_hub("Elfsong/Venus_Model_Evaluation", f"{dataset_split_name}_afterburner_{afterburner_model_name}", private=True)
+
+        # Evaluation (E)
+        if mode in ["E", "G+E"]:
+            code_generation_dataset = load_dataset("Elfsong/Venus_Model_Evaluation", f"{dataset_split_name}_afterburner_{afterburner_model_name}", split="train")
+            test_packs = [(code['solution'], instance, self.case_multiply, self.monolith_timeout) for code, instance in zip(code_generation_dataset, venus_dataset)]
+            test_packs = test_packs * data_multiply
+                
+            results = list()
+            with ThreadPool(self.number_of_workers) as pool:
+                with tqdm(total=len(test_packs), desc='Solution Evaluation') as pbar:
+                    for result in pool.imap(lambda args: VenusEvaluator.venus_sync_evaluation(*args), test_packs):
+                        results.append(result)
+                        pbar.update(1)
+
+            # Score Calculation
+            instance_list = list()
+            for instance, test_pack, result in zip(venus_dataset.repeat(data_multiply), test_packs, results):
+                time_distribution = [s['time'] for s in instance['solutions'] if s['passed']]
+                memory_distribution = [s['memory'] for s in instance['solutions'] if s['passed']]
+                integral_distribution = [s['integral'] for s in instance['solutions'] if s['passed']]
+
+                status = {
+                    "problem_id": int(instance['problem_id']),
+                    "passed": bool(result['passed']),
+                    "precentile_time": utils.percentage_position(result['time'], time_distribution),
+                    "precentile_memory": utils.percentage_position(result['memory'], memory_distribution),
+                    "precentile_integral": utils.percentage_position(result['integral'], integral_distribution),
+                    "absolute_time": float(result['time']),
+                    "absolute_memory": float(result['memory']),
+                    "absolute_integral": float(result['integral']),
+                    "solution_code": str(test_pack[0]),
+                }
+
+                instance_list.append(status)
+            
+            scores = {"total_c": 0, "pass_c": 0, "time_s": 0,"memory_s": 0, "integral_s": 0}
+            for instance in instance_list:
+                scores["total_c"] += 1
+                if instance['passed']:
+                    scores["pass_c"] += 1
+                    scores["time_s"] += instance['precentile_time']
+                    scores["memory_s"] += instance['precentile_memory']
+                    scores["integral_s"] += instance['precentile_integral']
+            
+            scores["pass_score"] = scores["pass_c"] / scores["total_c"]
+            scores["time_score"] = scores["time_s"] / scores["total_c"]
+            scores["memory_score"] = scores["memory_s"] / scores["total_c"]
+            scores["integral_score"] = scores["integral_s"] / scores["total_c"]
+
+            result = (f"Venus [{dataset_split_name}] Pass@1:{scores['pass_score']:.2f} Time_Precent:{scores['time_score']:.2f} Memory_Precent:{scores['memory_score']:.2f} Integral_Precent:{scores['integral_score']:.2f}")
+            print(result)
+                
+            # Save the results
+            ds = Dataset.from_list(instance_list)
+            ds.push_to_hub("Elfsong/Venus_Python_Model_Evaluation", dataset_split_name, private=True)
+        print("========================================================")
+
     def venus_evalution_pipeline(self, model_name, dataset_split_name, inference_provider, data_precentage="100%", data_multiply=1, mode="G+E"):
         print(f"[+] Processing Model: {model_name} [{dataset_split_name}] in [{data_precentage}] - {data_multiply} - {mode} - {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}")
-        # Generating solutions (G)
+
+        # Meta Dataset
+        venus_dataset = load_dataset("Elfsong/Venus_Python", split=f"test[:{data_precentage}]")
+
+        # Generation (G)
         if mode in ["G", "G+E"]:
-            venus_dataset = load_dataset("Elfsong/Venus_Python", split=f"test[:{data_precentage}]")
             test_packs = list()
             for instance in tqdm(venus_dataset, desc='Generating solutions'):
                 try:
@@ -318,7 +425,6 @@ class VenusEvaluator:
         
         # Parallel Evaluation (E)
         if mode in ["E", "G+E"]:
-            venus_dataset = load_dataset("Elfsong/Venus_Python", split=f"test[:{data_precentage}]")
             code_generation_dataset = load_dataset("Elfsong/Venus_Model_Evaluation", dataset_split_name, split="train")
             test_packs = [(code['solution'], instance, self.case_multiply, self.monolith_timeout) for code, instance in zip(code_generation_dataset, venus_dataset)]
             test_packs = test_packs * data_multiply
@@ -381,16 +487,18 @@ if __name__ == "__main__":
 
     # Evaluate these models
     # venus_evaluator.venus_evalution_pipeline(model_name="google/gemma-3-27b-it", dataset_split_name="gemma_3_27b", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="E")
-    # venus_evaluator.venus_evalution_pipeline(model_name="meta-llama/Llama-3.3-70B-Instruct", dataset_split_name="llama_3_3_70b_instruct", inference_provider="together", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_evalution_pipeline(model_name="meta-llama/Llama-3.3-70B-Instruct", dataset_split_name="llama_3_3_70b_instruct", inference_provider="together", data_precentage="100%", data_multiply=16, mode="G")
     # venus_evaluator.venus_evalution_pipeline(model_name="meta-llama/Llama-3.1-8B-Instruct", dataset_split_name="llama_3_1_8b_instruct", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="E")
-    # venus_evaluator.venus_evalution_pipeline(model_name="meta-llama/Llama-3.1-405B-Instruct", dataset_split_name="llama_3_1_405b_instruct", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="E")
-    # venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-Coder-32B-Instruct", dataset_split_name="qwen_2_5_coder_32b_instruct", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="G+E")
+    # venus_evaluator.venus_evalution_pipeline(model_name="meta-llama/Llama-3.1-405B-Instruct", dataset_split_name="llama_3_1_405b_instruct", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="G")
+    # venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-Coder-32B-Instruct", dataset_split_name="qwen_2_5_coder_32b_instruct", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="G")
+    venus_evaluator.venus_evalution_pipeline(model_name="meta-llama/Llama-4-Scout-17B-16E-Instruct", dataset_split_name="llama_4_scout_17b_16e_instruct", inference_provider="together", data_precentage="100%", data_multiply=16, mode="E")
+
     # venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-Coder-7B-Instruct", dataset_split_name="qwen_2_5_coder_7b_instruct", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="E")
-    # venus_evaluator.venus_evalution_pipeline(model_name="deepseek-ai/DeepSeek-V3-0324", dataset_split_name="deepseek_v3", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="E")
+    venus_evaluator.venus_evalution_pipeline(model_name="deepseek-ai/DeepSeek-V3", dataset_split_name="deepseek_v3", inference_provider="together", data_precentage="100%", data_multiply=16, mode="E")
     # venus_evaluator.venus_evalution_pipeline(model_name="microsoft/Phi-3-mini-4k-instruct", dataset_split_name="phi_3_mini_4k_instruct", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="E")
     # venus_evaluator.venus_evalution_pipeline(model_name="gpt-4o", dataset_split_name="gpt_4o", inference_provider="openai", data_precentage="100%", data_multiply=16, mode="G+E")
-    venus_evaluator.venus_evalution_pipeline(model_name="claude-3-7-sonnet-20250219", dataset_split_name="claude_3_7_sonnet", inference_provider="claude", data_precentage="100%", data_multiply=16, mode="G")
-    venus_evaluator.venus_evalution_pipeline(model_name="claude-3-5-haiku-20241022", dataset_split_name="claude_3_5_haiku", inference_provider="claude", data_precentage="100%", data_multiply=16, mode="G")
+    # venus_evaluator.venus_evalution_pipeline(model_name="claude-3-7-sonnet-20250219", dataset_split_name="claude_3_7_sonnet", inference_provider="claude", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_evalution_pipeline(model_name="claude-3-5-haiku-20241022", dataset_split_name="claude_3_5_haiku", inference_provider="claude", data_precentage="100%", data_multiply=16, mode="E")
     # venus_evaluator.venus_evalution_pipeline(model_name="o3-mini", dataset_split_name="o3_mini", inference_provider="openai", data_precentage="100%", data_multiply=16, mode="E")
     # venus_evaluator.venus_evalution_pipeline(model_name="Qwen/QwQ-32B", dataset_split_name="qwq_32b", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="E")
     # venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-3B", dataset_split_name="qwen_2_5_3b", inference_provider="local", data_precentage="100%", data_multiply=16, mode="E")

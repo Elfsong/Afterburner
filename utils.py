@@ -373,7 +373,7 @@ def model_inference(inference_provider, model_name, prompt, temperature, max_tok
             model=model_name,
             messages=[{"role": "user", "content": prompt}],
             temperature=temperature,
-            max_tokens=max_tokens
+            max_tokens=min(max_tokens, 8192)
         )
         return response.content[0].text
     
