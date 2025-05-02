@@ -7,15 +7,23 @@ import os
 import re
 import bisect
 import anthropic
+from google import genai
 from openai import OpenAI
 from huggingface_hub import InferenceClient
 
+EFFICIENCY_INSTRUCTIONS = {
+    "time": "time-efficient",
+    "memory": "memory-efficient",
+    "integral": "both-time-and-memory-efficient",
+}
+
 TOKEN_REGISTRY = {
     "nebius": os.getenv("NEBIUS_TOKEN"),
-    "together": os.getenv("TOGETHER_TOKEN"),
+    "together": os.getenv("HUGGINGFACE_TOKEN"),
     "huggingface": os.getenv("HUGGINGFACE_TOKEN"),
     "openai": os.getenv("OPENAI_TOKEN"),
     "claude": os.getenv("CLAUDE_TOKEN"),
+    "gemini": os.getenv("GEMINI_TOKEN"),
     "local": "NONE",
 }
 
@@ -300,8 +308,8 @@ def get_url(provider_name: str) -> str | None:
         return "https://api.anthropic.com/v1/"
     elif provider_name == "local":
         return "http://localhost:8000/v1"
-    elif provider_name == "nebius":
-        return "https://api.studio.nebius.com/v1/"
+    # elif provider_name == "nebius":
+    #     return "https://api.studio.nebius.com/v1/"
     else:
         return None
 
@@ -376,7 +384,16 @@ def model_inference(inference_provider, model_name, prompt, temperature, max_tok
             max_tokens=min(max_tokens, 8192)
         )
         return response.content[0].text
-    
+    elif inference_provider == "gemini":
+        client = genai.Client(api_key=get_token(inference_provider))
+        response = client.models.generate_content(
+            model="gemini-2.5-flash-preview-04-17",
+            contents=prompt,
+            config=genai.types.GenerateContentConfig(
+                thinking_config=genai.types.ThinkingConfig(thinking_budget=max_tokens-1000)
+            ),
+        )
+        return response.text
     elif inference_provider == "local":
         client = OpenAI(base_url=get_url(inference_provider), api_key=get_token(inference_provider))
         completion = client.chat.completions.create(
@@ -389,9 +406,8 @@ def model_inference(inference_provider, model_name, prompt, temperature, max_tok
     else:
         # Prepare the API client
         client = InferenceClient(
-            provider=get_provider_name(inference_provider),
+            provider=inference_provider,
             api_key=get_token(inference_provider), 
-            base_url=get_url(inference_provider),
         )
         
         # Generate the solution

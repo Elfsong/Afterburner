@@ -317,16 +317,32 @@ if __name__ == "__main__":
     apps_evaluator = AppsEvaluator(lang="python3", monolith_timeout=90, case_multiply=100, number_of_workers=81)
     # evaluator.apps_distribution_pipeline()
     
-    # apps_evaluator.apps_evaluation_pipeline(model_name="meta-llama/Llama-3.3-70B-Instruct", dataset_split_name="llama_3_3_70b_instruct", inference_provider="together", data_precentage="20%", data_multiply=16, mode="G")
-    # apps_evaluator.apps_evaluation_pipeline(model_name="meta-llama/Llama-3.1-8B-Instruct", dataset_split_name="llama_3_1_8b_instruct", inference_provider="nebius", data_precentage="20%", data_multiply=16, mode="G")
-    # apps_evaluator.apps_evaluation_pipeline(model_name="meta-llama/Llama-3.1-405B-Instruct", dataset_split_name="llama_3_1_405b_instruct", inference_provider="nebius", data_precentage="20%", data_multiply=16, mode="G")
-    # apps_evaluator.apps_evaluation_pipeline(model_name="Qwen/Qwen2.5-Coder-32B-Instruct", dataset_split_name="qwen_2_5_coder_32b_instruct", inference_provider="nebius", data_precentage="32", data_multiply=16, mode="G+E")
-    # apps_evaluator.apps_evaluation_pipeline(model_name="Qwen/Qwen2.5-Coder-7B-Instruct", dataset_split_name="qwen_2_5_coder_7b_instruct", inference_provider="nebius", data_precentage="20%", data_multiply=16, mode="G")
-    # apps_evaluator.apps_evaluation_pipeline(model_name="deepseek-ai/DeepSeek-V3-0324", dataset_split_name="deepseek_v3", inference_provider="nebius", data_precentage="20%", data_multiply=16, mode="G")
-    # apps_evaluator.apps_evaluation_pipeline(model_name="claude-3-7-sonnet-20250219", dataset_split_name="claude_3_7_sonnet", inference_provider="claude", data_precentage="20%", data_multiply=16, mode="G") 
-    # apps_evaluator.apps_evaluation_pipeline(model_name="deepseek-ai/DeepSeek-V3-0324", dataset_split_name="deepseek_v3", inference_provider="nebius", data_precentage="20%", data_multiply=16, mode="G")
-    # apps_evaluator.apps_evaluation_pipeline(model_name="Qwen/Qwen2.5-3B-Instruct", dataset_split_name="qwen_2_5_3b_instruct", inference_provider="local", data_precentage="5%", data_multiply=16, mode="E")
-    apps_evaluator.apps_evaluation_pipeline(model_name="o3-mini", dataset_split_name="o3_mini", inference_provider="openai", data_precentage="5%", data_multiply=16, mode="E")
+    # # qwen_2_5_3b
+    # apps_evaluator.apps_evaluation_pipeline(model_name="Qwen/Qwen2.5-3B-Instruct", dataset_split_name="qwen_2_5_3b_instruct", inference_provider="local", data_precentage="100%", data_multiply=16, mode="G")
+    
+    # # qwen_2_5_7b_instruct
+    # apps_evaluator.apps_evaluation_pipeline(model_name="Qwen/Qwen2.5-7B-Instruct", dataset_split_name="qwen_2_5_7b_instruct", inference_provider="local", data_precentage="100%", data_multiply=16, mode="E")
+    
+    # # qwen_2_5_coder_7b
+    # apps_evaluator.apps_evaluation_pipeline(model_name="Qwen/Qwen2.5-Coder-7B-Instruct", dataset_split_name="qwen_2_5_coder_7b_instruct", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="E")
+    
+    # # # llama_4_scout_17b_16e_instruct
+    # apps_evaluator.apps_evaluation_pipeline(model_name="meta-llama/Llama-4-Scout-17B-16E-Instruct", dataset_split_name="llama_4_scout_17b_16e_instruct", inference_provider="together", data_precentage="100%", data_multiply=16, mode="E")
+    
+    # # gpt_4o
+    # apps_evaluator.apps_evaluation_pipeline(model_name="gpt-4o", dataset_split_name="gpt_4o", inference_provider="openai", data_precentage="100%", data_multiply=16, mode="E")
+    
+    # claude_3_5_haiku
+    # apps_evaluator.apps_evaluation_pipeline(model_name="claude-3-5-haiku-latest", dataset_split_name="claude_3_5_haiku", inference_provider="claude", data_precentage="100%", data_multiply=16, mode="E")
+    
+    # # claude_3_7_sonnet
+    apps_evaluator.apps_evaluation_pipeline(model_name="claude-3-7-sonnet-latest", dataset_split_name="claude_3_7_sonnet", inference_provider="claude", data_precentage="100%", data_multiply=16, mode="E")
+    
+    # # deepseek_v3
+    apps_evaluator.apps_evaluation_pipeline(model_name="deepseek-ai/DeepSeek-V3", dataset_split_name="deepseek_v3", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="E")
+    
+    # # o4-mini
+    apps_evaluator.apps_evaluation_pipeline(model_name="o4-mini", dataset_split_name="o4_mini", inference_provider="openai", data_precentage="100%", data_multiply=16, mode="E")
 
 
 

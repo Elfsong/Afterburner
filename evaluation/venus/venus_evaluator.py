@@ -111,6 +111,26 @@ Your task is to implement a solution to the following problem in {target_lang}.
 Your solution:
 """
 
+AFTERBURNER_GENERATION_TEMPLATE = """
+## Instructions
+You are an expert competitive programmer who excels at solving algorithm problems in multiple programming languages.
+Your task is to implement a solution to the following problem in {target_lang}.
+
+## Problem Description
+{problem_description}
+
+## Original Solution
+{original_solution}
+
+## Original Performance
+Passed: {original_passed} / Time: {original_time} / Memory: {original_memory} / Integral: {original_integral}
+
+## Output Format
+- Provide the complete solution code in **one markdown code block** with appropriate language identifier.
+- Fix the original solution if it was not passed. Optimize the {efficiency_instruction} performance if the original solution was passed.
+- EXCLUDE ALL explanations, code comments, import/package/library statements, additional classes or functions outside of the starter code scope, or starting code like `if __name__ == "__main__":` or `func main()` or `package main` or `using namespace std;`.
+"""
+
 class VenusEvaluator:
     def __init__(self, lang, number_of_workers, case_multiply, monolith_timeout) -> None:
         self.lang = lang
@@ -192,12 +212,17 @@ class VenusEvaluator:
         return code
     
     @classmethod
-    def venus_afterburner_generation(cls, inference_provider, model_name, instance: Any, original_solution: str, target_lang: str, temperature=0, max_token=4096) -> str:
+    def venus_afterburner_generation(cls, inference_provider, model_name, instance: Any, original_solution: str, original_passed: bool, original_time: float, original_memory: float, original_integral: float, efficiency_instruction: str,target_lang: str, temperature=0, max_token=4096) -> str:
         # Prepare the prompt
-        prompt = GENERATION_TEMPLATE.format(
+        prompt = AFTERBURNER_GENERATION_TEMPLATE.format(
             target_lang=target_lang,
-            question=instance['question_content'],
-            starter_code=utils.wrap_code_block(target_lang, instance['code_prompt']),
+            problem_description=instance['question_content'],
+            original_solution=original_solution,
+            original_passed=original_passed,
+            original_time=original_time,
+            original_memory=original_memory,
+            original_integral=original_integral,
+            efficiency_instruction=utils.EFFICIENCY_INSTRUCTIONS[efficiency_instruction]
         )
 
         model_response = utils.model_inference(
@@ -209,7 +234,7 @@ class VenusEvaluator:
         )
         
         try:
-            code = utils.extract_code_blocks(model_response)[0]['code']
+            code = utils.extract_code_blocks(model_response)[-1]['code']
         except Exception as e:
             print(f"[-] No code blocks found. Will return the whole response.")
             code = model_response
@@ -323,33 +348,70 @@ class VenusEvaluator:
             new_leetcode_dataset = Dataset.from_list(new_leetcode_data)
             new_leetcode_dataset.push_to_hub("Elfsong/Venus_python", 'verified', split=f"{i}_{(i+1)}", private=True)
 
-    def venus_afterburner_evaluation_pipeline(self, afterburner_model_name, dataset_split_name, inference_provider, data_precentage="100%", data_multiply=1, mode="G+E"):
-        print(f"[+] Processing Model: [Afterburner] {afterburner_model_name} [{dataset_split_name}] in [{data_precentage}] - {data_multiply} - {mode} - {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}")
+    def venus_afterburner_evaluation_pipeline(self, afterburner_model_name, afterburner_split_name, original_dataset_split_name, efficiency_instruction, inference_provider, data_precentage="100%", data_multiply=1, mode="G+E"):
+        # Generation Config
+        generation_config = f"{original_dataset_split_name}_{efficiency_instruction}_{afterburner_split_name}"
+
+        # Check the Efficiency Instruction
+        if efficiency_instruction not in utils.EFFICIENCY_INSTRUCTIONS:
+            raise ValueError(f"Invalid efficiency instruction: {efficiency_instruction}")
+
+        # Evaluation Config
+        print(f"[+] Processing Model: {generation_config}")
+        print(f"[+] Data_Multiply: {data_multiply}")
+        print(f"[+] Mode: {mode}")
+        print(f"[+] Efficiency_Instruction: {efficiency_instruction}")
+        print(f"[+] Time: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}")
 
         # Meta Dataset
         venus_dataset = load_dataset("Elfsong/Venus_Python", split=f"test[:{data_precentage}]")
 
         # Original Generation Dataset
-        generation_dataset = load_dataset("Elfsong/Venus_Model_Evaluation", dataset_split_name, split="train")
+        generation_dataset = load_dataset("Elfsong/Venus_Python_Model_Evaluation", original_dataset_split_name, split="train")
 
         # Generation (G)
         if mode in ["G", "G+E"]:
             test_packs = list()
             for instance in tqdm(venus_dataset, desc='Generating solutions'):
                 try:
-                    original_solution = generation_dataset.filter(lambda x: x['problem_id'] == int(instance['problem_id']))['solution'][0]
-                    generated_solution = self.venus_afterburner_generation(inference_provider, afterburner_model_name, instance, original_solution, self.lang, temperature=0, max_token=16384)
+                    # Find matching solutions directly
+                    original_solutions = [s for s in generation_dataset if s['problem_id'] == int(instance['problem_id'])]
+                    original_solution_code = original_solutions[0]['solution_code']
+                    original_solution_passed = all(s['passed'] for s in original_solutions)
+                    original_solution_time = sum(s['absolute_time'] for s in original_solutions) / len(original_solutions)
+                    original_solution_memory = sum(s['absolute_memory'] for s in original_solutions) / len(original_solutions)
+                    original_solution_integral = sum(s['absolute_integral'] for s in original_solutions) / len(original_solutions)
+
+                    generated_solution = self.venus_afterburner_generation(
+                        inference_provider, 
+                        afterburner_model_name, 
+                        instance, 
+                        original_solution_code, 
+                        original_solution_passed, 
+                        original_solution_time, 
+                        original_solution_memory, 
+                        original_solution_integral,
+                        efficiency_instruction,
+                        self.lang, 
+                        temperature=0, 
+                        max_token=8192
+                    )
                 except Exception as e:
                     print(f"[-] Generation Error: {e}")
                     generated_solution = ""
                 finally:
                     test_packs.append({"problem_id": int(instance['problem_id']), "solution": generated_solution})
             ds = Dataset.from_list(test_packs)
-            ds.push_to_hub("Elfsong/Venus_Model_Evaluation", f"{dataset_split_name}_afterburner_{afterburner_model_name}", private=True)
+            ds.push_to_hub("Elfsong/Venus_Model_Evaluation", generation_config, private=True)
 
         # Evaluation (E)
         if mode in ["E", "G+E"]:
-            code_generation_dataset = load_dataset("Elfsong/Venus_Model_Evaluation", f"{dataset_split_name}_afterburner_{afterburner_model_name}", split="train")
+            code_generation_dataset = load_dataset("Elfsong/Venus_Model_Evaluation", generation_config, split="train")
+
+            # Check Dataset Size
+            if len(code_generation_dataset) != len(venus_dataset):
+                raise ValueError(f"Dataset size mismatch: {len(code_generation_dataset)} != {len(venus_dataset)}")
+            
             test_packs = [(code['solution'], instance, self.case_multiply, self.monolith_timeout) for code, instance in zip(code_generation_dataset, venus_dataset)]
             test_packs = test_packs * data_multiply
                 
@@ -395,12 +457,14 @@ class VenusEvaluator:
             scores["memory_score"] = scores["memory_s"] / scores["total_c"]
             scores["integral_score"] = scores["integral_s"] / scores["total_c"]
 
-            result = (f"Venus [{dataset_split_name}] Pass@1:{scores['pass_score']:.2f} Time_Precent:{scores['time_score']:.2f} Memory_Precent:{scores['memory_score']:.2f} Integral_Precent:{scores['integral_score']:.2f}")
-            print(result)
+            print(f"[+] Venus Evaluation")
+            print(f"Generation Config: {generation_config}")
+            print(f"Pass@1: {scores['pass_score']:.2f} Time_Precent: {scores['time_score']:.2f} Memory_Precent: {scores['memory_score']:.2f} Integral_Precent: {scores['integral_score']:.2f}")
                 
             # Save the results
             ds = Dataset.from_list(instance_list)
-            ds.push_to_hub("Elfsong/Venus_Python_Model_Evaluation", dataset_split_name, private=True)
+            ds.push_to_hub("Elfsong/Venus_Python_Model_Evaluation", generation_config, private=True)
+
         print("========================================================")
 
     def venus_evalution_pipeline(self, model_name, dataset_split_name, inference_provider, data_precentage="100%", data_multiply=1, mode="G+E"):
@@ -485,35 +549,58 @@ if __name__ == "__main__":
     # Get the distribution of each problem (it takes a long long time, be careful if you truely want to run it)
     # venus_evaluator.venus_distribution_pipeline()
 
-    # Evaluate these models
+    # Vanilla Evaluation
     # venus_evaluator.venus_evalution_pipeline(model_name="google/gemma-3-27b-it", dataset_split_name="gemma_3_27b", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="E")
     # venus_evaluator.venus_evalution_pipeline(model_name="meta-llama/Llama-3.3-70B-Instruct", dataset_split_name="llama_3_3_70b_instruct", inference_provider="together", data_precentage="100%", data_multiply=16, mode="G")
     # venus_evaluator.venus_evalution_pipeline(model_name="meta-llama/Llama-3.1-8B-Instruct", dataset_split_name="llama_3_1_8b_instruct", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="E")
     # venus_evaluator.venus_evalution_pipeline(model_name="meta-llama/Llama-3.1-405B-Instruct", dataset_split_name="llama_3_1_405b_instruct", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="G")
     # venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-Coder-32B-Instruct", dataset_split_name="qwen_2_5_coder_32b_instruct", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="G")
-    venus_evaluator.venus_evalution_pipeline(model_name="meta-llama/Llama-4-Scout-17B-16E-Instruct", dataset_split_name="llama_4_scout_17b_16e_instruct", inference_provider="together", data_precentage="100%", data_multiply=16, mode="E")
-
     # venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-Coder-7B-Instruct", dataset_split_name="qwen_2_5_coder_7b_instruct", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="E")
-    venus_evaluator.venus_evalution_pipeline(model_name="deepseek-ai/DeepSeek-V3", dataset_split_name="deepseek_v3", inference_provider="together", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_evalution_pipeline(model_name="meta-llama/Llama-4-Scout-17B-16E-Instruct", dataset_split_name="llama_4_scout_17b_16e_instruct", inference_provider="together", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_evalution_pipeline(model_name="deepseek-ai/DeepSeek-V3", dataset_split_name="deepseek_v3", inference_provider="together", data_precentage="100%", data_multiply=16, mode="E")
     # venus_evaluator.venus_evalution_pipeline(model_name="microsoft/Phi-3-mini-4k-instruct", dataset_split_name="phi_3_mini_4k_instruct", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="E")
     # venus_evaluator.venus_evalution_pipeline(model_name="gpt-4o", dataset_split_name="gpt_4o", inference_provider="openai", data_precentage="100%", data_multiply=16, mode="G+E")
     # venus_evaluator.venus_evalution_pipeline(model_name="claude-3-7-sonnet-20250219", dataset_split_name="claude_3_7_sonnet", inference_provider="claude", data_precentage="100%", data_multiply=16, mode="E")
     # venus_evaluator.venus_evalution_pipeline(model_name="claude-3-5-haiku-20241022", dataset_split_name="claude_3_5_haiku", inference_provider="claude", data_precentage="100%", data_multiply=16, mode="E")
     # venus_evaluator.venus_evalution_pipeline(model_name="o3-mini", dataset_split_name="o3_mini", inference_provider="openai", data_precentage="100%", data_multiply=16, mode="E")
-    # venus_evaluator.venus_evalution_pipeline(model_name="Qwen/QwQ-32B", dataset_split_name="qwq_32b", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="E")
+    venus_evaluator.venus_evalution_pipeline(model_name="Qwen/QwQ-32B", dataset_split_name="qwq_32b", inference_provider="nebius", data_precentage="24", data_multiply=16, mode="G+E")
     # venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-3B", dataset_split_name="qwen_2_5_3b", inference_provider="local", data_precentage="100%", data_multiply=16, mode="E")
     # venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-3B-Instruct", dataset_split_name="qwen_2_5_3b_instruct", inference_provider="local", data_precentage="100%", data_multiply=16, mode="E")
     # venus_evaluator.venus_evalution_pipeline(model_name="/home/mingzhe/Projects/Afterburner/training/qwen_3b_sft_dpo_batch_2_ga_8_lr_4e-5/checkpoint-1200", dataset_split_name="qwen_2_5_3b_sft_dpo", inference_provider="local", data_precentage="100%", data_multiply=16, mode="E")
-
     # venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-7B-Instruct", dataset_split_name="qwen_2_5_7b_instruct", inference_provider="local", data_precentage="100%", data_multiply=16, mode="G+E")
     # venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-7B", dataset_split_name="qwen_2_5_7b", inference_provider="local", data_precentage="100%", data_multiply=16, mode="G")
     # venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-Coder-7B", dataset_split_name="qwen_2_5_coder_7b", inference_provider="local", data_precentage="100%", data_multiply=16, mode="E")
-
-
-
-    
-    
-    
+    # venus_evaluator.venus_evalution_pipeline(model_name="o4-mini", dataset_split_name="o4_mini", inference_provider="openai", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_evalution_pipeline(model_name="gemini-2.5-pro-preview-03-2", dataset_split_name="gemini_2_5_pro", inference_provider="gemini", data_precentage="5", data_multiply=16, mode="G")
+    # venus_evaluator.venus_evalution_pipeline(model_name="Qwen/", dataset_split_name="gemini_2_5_pro", inference_provider="gemini", data_precentage="5", data_multiply=16, mode="G")
 
     
-
+    # Afterburner Evaluation
+    # venus_evaluator.venus_afterburner_evaluation_pipeline(afterburner_model_name="gpt-4o", afterburner_split_name="gpt_4o", original_dataset_split_name="qwen_2_5_coder_7b", efficiency_instruction="integral", inference_provider="openai", data_precentage="100%", data_multiply=16, mode="G+E")
+    # venus_evaluator.venus_afterburner_evaluation_pipeline(afterburner_model_name="gpt-4o", afterburner_split_name="gpt_4o", original_dataset_split_name="qwen_2_5_3b", efficiency_instruction="integral", inference_provider="openai", data_precentage="100%", data_multiply=16, mode="G+E")
+    # venus_evaluator.venus_afterburner_evaluation_pipeline(afterburner_model_name="gpt-4o", afterburner_split_name="gpt_4o", original_dataset_split_name="qwen_2_5_7b_instruct", efficiency_instruction="integral", inference_provider="openai", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_afterburner_evaluation_pipeline(afterburner_model_name="gpt-4o", afterburner_split_name="gpt_4o", original_dataset_split_name="gpt_4o", efficiency_instruction="integral", inference_provider="openai", data_precentage="100%", data_multiply=16, mode="G+E")
+    # venus_evaluator.venus_afterburner_evaluation_pipeline(afterburner_model_name="gpt-4o", afterburner_split_name="gpt_4o", original_dataset_split_name="llama_4_scout_17b_16e_instruct", efficiency_instruction="integral", inference_provider="openai", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_afterburner_evaluation_pipeline(afterburner_model_name="gpt-4o", afterburner_split_name="gpt_4o", original_dataset_split_name="qwen_2_5_3b", efficiency_instruction="time", inference_provider="openai", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_afterburner_evaluation_pipeline(afterburner_model_name="gpt-4o", afterburner_split_name="gpt_4o", original_dataset_split_name="qwen_2_5_3b", efficiency_instruction="memory", inference_provider="openai", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_afterburner_evaluation_pipeline(afterburner_model_name="gpt-4o", afterburner_split_name="gpt_4o", original_dataset_split_name="qwen_2_5_coder_7b", efficiency_instruction="time", inference_provider="openai", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_afterburner_evaluation_pipeline(afterburner_model_name="gpt-4o", afterburner_split_name="gpt_4o", original_dataset_split_name="qwen_2_5_coder_7b", efficiency_instruction="memory", inference_provider="openai", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_afterburner_evaluation_pipeline(afterburner_model_name="gpt-4o", afterburner_split_name="gpt_4o", original_dataset_split_name="qwen_2_5_7b_instruct", efficiency_instruction="time", inference_provider="openai", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_afterburner_evaluation_pipeline(afterburner_model_name="gpt-4o", afterburner_split_name="gpt_4o", original_dataset_split_name="qwen_2_5_7b_instruct", efficiency_instruction="memory", inference_provider="openai", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_afterburner_evaluation_pipeline(afterburner_model_name="gpt-4o", afterburner_split_name="gpt_4o", original_dataset_split_name="llama_4_scout_17b_16e_instruct", efficiency_instruction="time", inference_provider="openai", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_afterburner_evaluation_pipeline(afterburner_model_name="gpt-4o", afterburner_split_name="gpt_4o", original_dataset_split_name="llama_4_scout_17b_16e_instruct", efficiency_instruction="memory", inference_provider="openai", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_afterburner_evaluation_pipeline(afterburner_model_name="claude-3-7-sonnet-20250219", afterburner_split_name="claude_3_7_sonnet", original_dataset_split_name="gpt_4o", efficiency_instruction="integral", inference_provider="claude", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_afterburner_evaluation_pipeline(afterburner_model_name="claude-3-7-sonnet-20250219", afterburner_split_name="claude_3_7_sonnet", original_dataset_split_name="gpt_4o", efficiency_instruction="time", inference_provider="claude", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_afterburner_evaluation_pipeline(afterburner_model_name="claude-3-7-sonnet-20250219", afterburner_split_name="claude_3_7_sonnet", original_dataset_split_name="gpt_4o", efficiency_instruction="memory", inference_provider="claude", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_afterburner_evaluation_pipeline(afterburner_model_name="claude-3-7-sonnet-20250219", afterburner_split_name="claude_3_7_sonnet", original_dataset_split_name="claude_3_5_haiku", efficiency_instruction="integral", inference_provider="claude", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_afterburner_evaluation_pipeline(afterburner_model_name="claude-3-7-sonnet-20250219", afterburner_split_name="claude_3_7_sonnet", original_dataset_split_name="claude_3_5_haiku", efficiency_instruction="time", inference_provider="claude", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_afterburner_evaluation_pipeline(afterburner_model_name="claude-3-7-sonnet-20250219", afterburner_split_name="claude_3_7_sonnet", original_dataset_split_name="claude_3_5_haiku", efficiency_instruction="memory", inference_provider="claude", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_afterburner_evaluation_pipeline(afterburner_model_name="claude-3-7-sonnet-20250219", afterburner_split_name="claude_3_7_sonnet", original_dataset_split_name="claude_3_7_sonnet", efficiency_instruction="integral", inference_provider="claude", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_afterburner_evaluation_pipeline(afterburner_model_name="claude-3-7-sonnet-20250219", afterburner_split_name="claude_3_7_sonnet", original_dataset_split_name="claude_3_7_sonnet", efficiency_instruction="time", inference_provider="claude", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_afterburner_evaluation_pipeline(afterburner_model_name="claude-3-7-sonnet-20250219", afterburner_split_name="claude_3_7_sonnet", original_dataset_split_name="claude_3_7_sonnet", efficiency_instruction="memory", inference_provider="claude", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_afterburner_evaluation_pipeline(afterburner_model_name="claude-3-7-sonnet-20250219", afterburner_split_name="claude_3_7_sonnet", original_dataset_split_name="deepseek_v3", efficiency_instruction="integral", inference_provider="claude", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_afterburner_evaluation_pipeline(afterburner_model_name="claude-3-7-sonnet-20250219", afterburner_split_name="claude_3_7_sonnet", original_dataset_split_name="deepseek_v3", efficiency_instruction="time", inference_provider="claude", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_afterburner_evaluation_pipeline(afterburner_model_name="claude-3-7-sonnet-20250219", afterburner_split_name="claude_3_7_sonnet", original_dataset_split_name="deepseek_v3", efficiency_instruction="memory", inference_provider="claude", data_precentage="100%", data_multiply=16, mode="E")
+    # venus_evaluator.venus_afterburner_evaluation_pipeline(afterburner_model_name="Qwen/QwQ-32B", afterburner_split_name="qwq_32b", original_dataset_split_name="claude_3_7_sonnet", efficiency_instruction="integral", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="G")
+    # venus_evaluator.venus_afterburner_evaluation_pipeline(afterburner_model_name="Qwen/QwQ-32B", afterburner_split_name="qwq_32b", original_dataset_split_name="claude_3_7_sonnet", efficiency_instruction="time", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="G")
+    # venus_evaluator.venus_afterburner_evaluation_pipeline(afterburner_model_name="Qwen/QwQ-32B", afterburner_split_name="qwq_32b", original_dataset_split_name="claude_3_7_sonnet", efficiency_instruction="memory", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="G")

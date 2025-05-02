@@ -18,3 +18,6 @@ training/*
 evaluation/venus/correct_templates/*
 evaluation/venus/cpp_templates/*
 evaluation/venus/cpp_batch.py
+evaluation/venus/batch_input/*
+evaluation/venus/batch_output/*
+evaluation/venus/cpp/correct_templates/*
