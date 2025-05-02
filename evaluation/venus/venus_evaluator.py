@@ -490,7 +490,12 @@ class VenusEvaluator:
         # Parallel Evaluation (E)
         if mode in ["E", "G+E"]:
             code_generation_dataset = load_dataset("Elfsong/Venus_Model_Evaluation", dataset_split_name, split="train")
-            test_packs = [(code['solution'], instance, self.case_multiply, self.monolith_timeout) for code, instance in zip(code_generation_dataset, venus_dataset)]
+            
+            solutions = dict()
+            for instance in code_generation_dataset:
+                solutions[int(instance['problem_id'])] = instance['solution']
+                
+            test_packs = [(solutions[int(instance['problem_id'])], instance, self.case_multiply, self.monolith_timeout) for instance in venus_dataset]
             test_packs = test_packs * data_multiply
                 
             results = list()
@@ -563,7 +568,7 @@ if __name__ == "__main__":
     # venus_evaluator.venus_evalution_pipeline(model_name="claude-3-7-sonnet-20250219", dataset_split_name="claude_3_7_sonnet", inference_provider="claude", data_precentage="100%", data_multiply=16, mode="E")
     # venus_evaluator.venus_evalution_pipeline(model_name="claude-3-5-haiku-20241022", dataset_split_name="claude_3_5_haiku", inference_provider="claude", data_precentage="100%", data_multiply=16, mode="E")
     # venus_evaluator.venus_evalution_pipeline(model_name="o3-mini", dataset_split_name="o3_mini", inference_provider="openai", data_precentage="100%", data_multiply=16, mode="E")
-    venus_evaluator.venus_evalution_pipeline(model_name="Qwen/QwQ-32B", dataset_split_name="qwq_32b", inference_provider="nebius", data_precentage="24", data_multiply=16, mode="G+E")
+    venus_evaluator.venus_evalution_pipeline(model_name="Qwen/QwQ-32B", dataset_split_name="qwq_32b", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="E")
     # venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-3B", dataset_split_name="qwen_2_5_3b", inference_provider="local", data_precentage="100%", data_multiply=16, mode="E")
     # venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-3B-Instruct", dataset_split_name="qwen_2_5_3b_instruct", inference_provider="local", data_precentage="100%", data_multiply=16, mode="E")
     # venus_evaluator.venus_evalution_pipeline(model_name="/home/mingzhe/Projects/Afterburner/training/qwen_3b_sft_dpo_batch_2_ga_8_lr_4e-5/checkpoint-1200", dataset_split_name="qwen_2_5_3b_sft_dpo", inference_provider="local", data_precentage="100%", data_multiply=16, mode="E")

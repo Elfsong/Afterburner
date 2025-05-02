@@ -85,7 +85,7 @@ def calculate_confidence_interval(bootstrap_list, name=""):
     print(f"Std: {std:.4f}")
     print(f"Sem: {sem:.4f}")
     print(f"CI: [{ci_lower:.4f}, {ci_upper:.4f}]")
-    print(f"Result: {mean:.4f} [{ci_lower:.4f}, {ci_upper:.4f}]")
+    print(f"Result: {mean*100:.2f}% [{ci_lower*100:.2f}% {ci_upper*100:.2f}%]")
 
 
 calculate_confidence_interval(bootstrap_time_list, "Time")

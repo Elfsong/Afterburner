@@ -21,3 +21,4 @@ evaluation/venus/cpp_batch.py
 evaluation/venus/batch_input/*
 evaluation/venus/batch_output/*
 evaluation/venus/cpp/correct_templates/*
+evaluation/venus/nebius_batch_requests.jsonl

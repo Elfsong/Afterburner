@@ -308,8 +308,8 @@ def get_url(provider_name: str) -> str | None:
         return "https://api.anthropic.com/v1/"
     elif provider_name == "local":
         return "http://localhost:8000/v1"
-    # elif provider_name == "nebius":
-    #     return "https://api.studio.nebius.com/v1/"
+    elif provider_name == "nebius":
+        return "https://api.studio.nebius.com/v1/"
     else:
         return None
 

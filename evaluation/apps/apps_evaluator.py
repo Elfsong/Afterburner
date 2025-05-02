@@ -177,9 +177,14 @@ class AppsEvaluator:
         
         # Parallel Evaluation (E)
         if mode in ["E", "G+E"]:
-            venus_dataset = load_dataset("Elfsong/APPS_Python", split=f"test[:{data_precentage}]")
+            apps_dataset = load_dataset("Elfsong/APPS_Python", split=f"test[:{data_precentage}]")
             code_generation_dataset = load_dataset("Elfsong/APPS_Model_Evaluation", dataset_split_name, split="train")
-            test_packs = [(code['solution'], instance, self.case_multiply, self.monolith_timeout) for code, instance in zip(code_generation_dataset, venus_dataset)]
+            
+            solutions = dict()
+            for instance in code_generation_dataset:
+                solutions[int(instance['problem_id'])] = instance['solution']
+                
+            test_packs = [(solutions[int(instance['problem_id'])], instance, self.case_multiply, self.monolith_timeout) for instance in apps_dataset]
             test_packs = test_packs * data_multiply
                 
             results = list()
@@ -191,7 +196,7 @@ class AppsEvaluator:
 
             # Score Calculation
             instance_list = list()
-            for instance, test_pack, result in zip(venus_dataset.repeat(data_multiply), test_packs, results):
+            for instance, test_pack, result in zip(apps_dataset.repeat(data_multiply), test_packs, results):
                 solutions = json.loads(instance['solutions'])
                 time_distribution = [s['time'] for s in solutions if s['passed']]
                 memory_distribution = [s['memory'] for s in solutions if s['passed']]
@@ -336,13 +341,14 @@ if __name__ == "__main__":
     # apps_evaluator.apps_evaluation_pipeline(model_name="claude-3-5-haiku-latest", dataset_split_name="claude_3_5_haiku", inference_provider="claude", data_precentage="100%", data_multiply=16, mode="E")
     
     # # claude_3_7_sonnet
-    apps_evaluator.apps_evaluation_pipeline(model_name="claude-3-7-sonnet-latest", dataset_split_name="claude_3_7_sonnet", inference_provider="claude", data_precentage="100%", data_multiply=16, mode="E")
+    # apps_evaluator.apps_evaluation_pipeline(model_name="claude-3-7-sonnet-latest", dataset_split_name="claude_3_7_sonnet", inference_provider="claude", data_precentage="100%", data_multiply=16, mode="E")
     
-    # # deepseek_v3
-    apps_evaluator.apps_evaluation_pipeline(model_name="deepseek-ai/DeepSeek-V3", dataset_split_name="deepseek_v3", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="E")
+    # # # deepseek_v3
+    # apps_evaluator.apps_evaluation_pipeline(model_name="deepseek-ai/DeepSeek-V3", dataset_split_name="deepseek_v3", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="E")
     
-    # # o4-mini
-    apps_evaluator.apps_evaluation_pipeline(model_name="o4-mini", dataset_split_name="o4_mini", inference_provider="openai", data_precentage="100%", data_multiply=16, mode="E")
+    # # # o4-mini
+    # apps_evaluator.apps_evaluation_pipeline(model_name="o4-mini", dataset_split_name="o4_mini", inference_provider="openai", data_precentage="100%", data_multiply=16, mode="E")
 
+    apps_evaluator.apps_evaluation_pipeline(model_name="Qwen/QwQ-32B", dataset_split_name="qwq_32b", inference_provider="nebius", data_precentage="100%", data_multiply=16, mode="E")
 
 
