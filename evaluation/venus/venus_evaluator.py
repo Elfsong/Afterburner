@@ -491,6 +491,201 @@ class VenusEvaluator:
         print("========================================================")
         return generation_config
 
+    def venus_afterburner_pipeline(self, afterburner_model_name, afterburner_dataset_config, input_dataset_config, efficiency_instruction, inference_provider, force_generation=False, data_precentage="100%", data_multiply=1, mode="G+E"):
+        assert mode == "G+E", "Only G+E mode is supported for afterburner pipeline"
+        assert efficiency_instruction in utils.EFFICIENCY_INSTRUCTIONS, f"Invalid efficiency instruction: {efficiency_instruction}"
+        output_dataset_config = f"{input_dataset_config}_{efficiency_instruction}_{afterburner_dataset_config}"
+
+        # Meta Dataset
+        venus_dataset = load_dataset("Elfsong/Venus_Python", split=f"test[:{data_precentage}]")
+        original_generations = dict()
+
+        # Meta Information
+        print(f"[+] Input Config: {input_dataset_config}")
+        print(f"[+] Output Config: {output_dataset_config}")
+        print(f"[+] Data_Multiply: {data_multiply}")
+        print(f"[+] Mode: {mode}")
+        print(f"[+] Efficiency_Instruction: {efficiency_instruction}")
+        print(f"[+] Time: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}")
+
+        # Generation (G)
+        if mode in ["G", "G+E"]:
+            # Original Generation Dataset
+            generation_dict = dict()
+            dataset_configs = get_dataset_config_names("Elfsong/Venus_Python_Model_Evaluation")
+            if input_dataset_config in dataset_configs and not force_generation:
+                generation_dataset = load_dataset("Elfsong/Venus_Python_Model_Evaluation", input_dataset_config, split="train")
+                for instance in generation_dataset:
+                    problem_id = int(instance['problem_id'])
+                    if problem_id not in generation_dict:
+                        generation_dict[problem_id] = [instance]
+                    else:
+                        generation_dict[problem_id] += [instance]
+            else:
+                generation_dict = dict()
+                print(f"[-] [Force_generation: {force_generation}] [{input_dataset_config}] not found in dataset_configs, will set the original code to empty string")
+
+            # Generation
+            test_packs = list()
+            for instance in tqdm(venus_dataset, desc='Generating solutions'):
+                try:
+                    if int(instance['problem_id']) in generation_dict:
+                        original_solutions = generation_dict[int(instance['problem_id'])]
+                        original_solution_code = original_solutions[0]['solution_code']
+                        original_solution_passed = all(s['passed'] for s in original_solutions)
+                        original_solution_time = sum(s['absolute_time'] for s in original_solutions) / len(original_solutions)
+                        original_solution_memory = sum(s['absolute_memory'] for s in original_solutions) / len(original_solutions)
+                        original_solution_integral = sum(s['absolute_integral'] for s in original_solutions) / len(original_solutions)
+                    else:
+                        original_solution_code = "<No Original Code>"
+                        original_solution_passed = False
+                        original_solution_time = 90
+                        original_solution_memory = 1000000
+                        original_solution_integral = 90 * 1000000
+
+                    original_generations[int(instance['problem_id'])] = {
+                        "code": original_solution_code,
+                        "passed": original_solution_passed,
+                        "time": original_solution_time,
+                        "memory": original_solution_memory,
+                        "integral": original_solution_integral,
+                    }
+
+                    generated_solution = self.venus_afterburner_generation(
+                        inference_provider, 
+                        afterburner_model_name, 
+                        instance, 
+                        original_solution_code, 
+                        original_solution_passed, 
+                        original_solution_time, 
+                        original_solution_memory, 
+                        original_solution_integral,
+                        efficiency_instruction,
+                        self.lang, 
+                        temperature=0, 
+                        max_token=8192
+                    )
+                except Exception as e:
+                    print(f"[-] Generation Error: {e}")
+                    generated_solution = ""
+                finally:
+                    test_packs.append({"problem_id": int(instance['problem_id']), "solution": generated_solution})
+            ds = Dataset.from_list(test_packs)
+            ds.push_to_hub("Elfsong/Venus_Model_Evaluation", output_dataset_config, private=True)
+
+        # Evaluation (E)
+        if mode in ["E", "G+E"]:
+            code_generation_dataset = load_dataset("Elfsong/Venus_Model_Evaluation", output_dataset_config, split="train")
+
+            # Check Dataset Size
+            assert len(code_generation_dataset) == len(venus_dataset), f"Dataset size mismatch: {len(code_generation_dataset)} != {len(venus_dataset)}"
+            
+            test_packs = [(code['solution'], instance, self.case_multiply, self.monolith_timeout) for code, instance in zip(code_generation_dataset, venus_dataset)]
+            test_packs = test_packs * data_multiply
+                
+            results = list()
+            with ThreadPool(self.number_of_workers) as pool:
+                with tqdm(total=len(test_packs), desc='Solution Evaluation') as pbar:
+                    for result in pool.imap(lambda args: VenusEvaluator.venus_sync_evaluation(*args), test_packs):
+                        results.append(result)
+                        pbar.update(1)
+
+            # Score Calculation
+            instance_list = list()
+            for instance, test_pack, result in zip(venus_dataset.repeat(data_multiply), test_packs, results):
+                time_distribution = [s['time'] for s in instance['solutions'] if s['passed']]
+                memory_distribution = [s['memory'] for s in instance['solutions'] if s['passed']]
+                integral_distribution = [s['integral'] for s in instance['solutions'] if s['passed']]
+
+                status = {
+                    "problem_id": int(instance['problem_id']),
+                    "passed": bool(result['passed']),
+                    "precentile_time": utils.percentage_position(result['time'], time_distribution),
+                    "precentile_memory": utils.percentage_position(result['memory'], memory_distribution),
+                    "precentile_integral": utils.percentage_position(result['integral'], integral_distribution),
+                    "absolute_time": float(result['time']),
+                    "absolute_memory": float(result['memory']),
+                    "absolute_integral": float(result['integral']),
+                    "solution_code": str(test_pack[0]),
+                }
+
+                instance_list.append(status)
+            
+            scores = {"total_c": 0, "pass_c": 0, "time_s": 0,"memory_s": 0, "integral_s": 0}
+            for instance in instance_list:
+                scores["total_c"] += 1
+                if instance['passed']:
+                    scores["pass_c"] += 1
+                    scores["time_s"] += instance['precentile_time']
+                    scores["memory_s"] += instance['precentile_memory']
+                    scores["integral_s"] += instance['precentile_integral']
+            
+            # Update Solutions
+            new_generation_dict = dict()
+            for instance in instance_list:
+                problem_id = int(instance['problem_id'])
+                if problem_id not in new_generation_dict:
+                    new_generation_dict[problem_id] = [instance]
+                else:
+                    new_generation_dict[problem_id] += [instance]
+
+            updated_generation_list = list()
+            for instance in tqdm(venus_dataset, desc='Update Solutions'):
+                problem_id = int(instance['problem_id'])
+                original_generation = original_generations[problem_id]
+    
+                new_solutions = new_generation_dict[int(instance['problem_id'])]
+                new_solution_code = new_solutions[0]['solution_code']
+                new_solution_passed = all(s['passed'] for s in new_solutions)
+                new_solution_time = sum(s['absolute_time'] for s in new_solutions) / len(new_solutions)
+                new_solution_memory = sum(s['absolute_memory'] for s in new_solutions) / len(new_solutions)
+                new_solution_integral = sum(s['absolute_integral'] for s in new_solutions) / len(new_solutions)
+
+                if not original_generation['passed'] and not new_solution_passed:
+                    updated_generation_list.append({"problem_id": problem_id, "solution": new_solution_code})
+                elif original_generation['passed'] and not new_solution_passed:
+                    updated_generation_list.append({"problem_id": problem_id, "solution": original_generation['code']})
+                elif not original_generation['passed'] and new_solution_passed:
+                    updated_generation_list.append({"problem_id": problem_id, "solution": new_solution_code})
+                else:
+                    if efficiency_instruction == "time":
+                        if new_solution_time < original_generation['time']:
+                            updated_generation_list.append({"problem_id": problem_id, "solution": new_solution_code})
+                        else:
+                            updated_generation_list.append({"problem_id": problem_id, "solution": original_generation['code']})
+                    elif efficiency_instruction == "memory":    
+                        if new_solution_memory < original_generation['memory']:
+                            updated_generation_list.append({"problem_id": problem_id, "solution": new_solution_code})
+                        else:
+                            updated_generation_list.append({"problem_id": problem_id, "solution": original_generation['code']})
+                    elif efficiency_instruction == "integral":
+                        if new_solution_integral > original_generation['integral']:
+                            updated_generation_list.append({"problem_id": problem_id, "solution": new_solution_code})
+                        else:
+                            updated_generation_list.append({"problem_id": problem_id, "solution": original_generation['code']})
+            
+            print(f"[+] Update Generation List")
+            updated_generation_list = Dataset.from_list(updated_generation_list)
+            updated_generation_list.push_to_hub("Elfsong/Venus_Model_Evaluation", output_dataset_config, private=True)
+
+            scores["pass_score"] = scores["pass_c"] / scores["total_c"]
+            scores["time_score"] = scores["time_s"] / scores["total_c"]
+            scores["memory_score"] = scores["memory_s"] / scores["total_c"]
+            scores["integral_score"] = scores["integral_s"] / scores["total_c"]
+
+            print(f"[+] Venus Evaluation")
+            print(f"Generation Config: {output_dataset_config}")
+            print(f"Pass@1: {scores['pass_score']:.2f} Time_Precent: {scores['time_score']:.2f} Memory_Precent: {scores['memory_score']:.2f} Integral_Precent: {scores['integral_score']:.2f}")
+                
+            # Save the results
+            ds = Dataset.from_list(instance_list)
+            ds.push_to_hub("Elfsong/Venus_Python_Model_Evaluation", output_dataset_config, private=True)
+
+        print("========================================================")
+        return output_dataset_config
+
+
+
     def venus_evalution_pipeline(self, model_name, dataset_split_name, inference_provider, efficiency_instruction="integral", data_precentage="100%", data_multiply=1, mode="G+E"):
         dataset_split_name  = dataset_split_name + "_" + efficiency_instruction
         print(f"[+] Processing Model: {model_name} [{dataset_split_name}] in [{data_precentage}] - {data_multiply} - {mode} - {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}")
@@ -648,5 +843,5 @@ if __name__ == "__main__":
     efficiency_instruction = "time"
     dataset_split_name = "qwen_2_5_3b"
     for i in tqdm(range(8), desc=f"[{dataset_split_name}] [{efficiency_instruction}] Iteration Evaluation"):
-        dataset_split_name = venus_evaluator.venus_afterburner_evaluation_pipeline(afterburner_model_name="Qwen/Qwen2.5-3B", afterburner_split_name="qwen_2_5_3b", original_dataset_split_name=dataset_split_name, efficiency_instruction=efficiency_instruction, force_generation=True, inference_provider="local", data_precentage="100%", data_multiply=4, mode="G")
+        dataset_split_name = venus_evaluator.venus_afterburner_pipeline(afterburner_model_name="Qwen/Qwen2.5-3B", afterburner_dataset_config="qwen_2_5_3b", input_dataset_config=dataset_split_name, efficiency_instruction=efficiency_instruction, force_generation=True, inference_provider="local", data_precentage="100%", data_multiply=4, mode="G+E")
     
