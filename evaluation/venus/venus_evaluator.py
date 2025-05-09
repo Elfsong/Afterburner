@@ -127,6 +127,7 @@ Passed: {original_passed} / Time: {original_time} / Memory: {original_memory} / 
 
 ## Output Format
 - Provide the complete solution code in **one markdown code block** with appropriate language identifier.
+- Generate a new solution if the original solution was not provided.
 - Fix the original solution if it was not passed. Optimize the {efficiency_instruction} performance if the original solution was passed.
 - EXCLUDE ALL explanations, code comments, import/package/library statements, additional classes or functions outside of the starter code scope, or starting code like `if __name__ == "__main__":` or `func main()` or `package main` or `using namespace std;`.
 """
