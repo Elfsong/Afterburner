@@ -399,7 +399,7 @@ class VenusEvaluator:
                         original_solution_memory = sum(s['absolute_memory'] for s in original_solutions) / len(original_solutions)
                         original_solution_integral = sum(s['absolute_integral'] for s in original_solutions) / len(original_solutions)
                     else:
-                        original_solution_code = "<No original code provided, please generate the code instead>"
+                        original_solution_code = "<No original code provided, please generate a solution code instead>"
                         original_solution_passed = False
                         original_solution_time = 90
                         original_solution_memory = 1000000
