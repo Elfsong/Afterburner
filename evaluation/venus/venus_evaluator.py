@@ -538,7 +538,7 @@ class VenusEvaluator:
                         original_solution_memory = sum(s['absolute_memory'] for s in original_solutions) / len(original_solutions)
                         original_solution_integral = sum(s['absolute_integral'] for s in original_solutions) / len(original_solutions)
                     else:
-                        original_solution_code = "<No Original Code>"
+                        original_solution_code = "<No Original Code Provided, please generate a new solution code instead>"
                         original_solution_passed = False
                         original_solution_time = 90
                         original_solution_memory = 1000000
@@ -841,8 +841,11 @@ if __name__ == "__main__":
     # venus_evaluator.venus_afterburner_evaluation_pipeline(afterburner_model_name="Elfsong/Afterburner_3B_120", afterburner_split_name="afterburner_120", original_dataset_split_name="qwen_2_5_7b_instruct", efficiency_instruction="integral", inference_provider="local", data_precentage="100%", data_multiply=16, mode="G")
     
     # Iteration Evaluation
+    venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-3B", dataset_split_name="qwen_2_5_3b", inference_provider="local", data_precentage="100%", data_multiply=8, mode="G+E", efficiency_instruction="none")
+    venus_evaluator.venus_evalution_pipeline(model_name="Qwen/Qwen2.5-3B", dataset_split_name="qwen_2_5_3b", inference_provider="local", data_precentage="100%", data_multiply=8, mode="G+E", efficiency_instruction="time")
     efficiency_instruction = "time"
     dataset_split_name = "qwen_2_5_3b"
+    force_generation = False
     for i in tqdm(range(8), desc=f"[{dataset_split_name}] [{efficiency_instruction}] Iteration Evaluation"):
-        dataset_split_name = venus_evaluator.venus_afterburner_pipeline(afterburner_model_name="Qwen/Qwen2.5-3B", afterburner_dataset_config="qwen_2_5_3b", input_dataset_config=dataset_split_name, efficiency_instruction=efficiency_instruction, force_generation=True, inference_provider="local", data_precentage="100%", data_multiply=4, mode="G+E")
+        dataset_split_name = venus_evaluator.venus_afterburner_pipeline(afterburner_model_name="Qwen/Qwen2.5-3B", afterburner_dataset_config="qwen_2_5_3b", input_dataset_config=dataset_split_name, efficiency_instruction=efficiency_instruction, force_generation=force_generation, inference_provider="local", data_precentage="24", data_multiply=4, mode="G+E")
     
