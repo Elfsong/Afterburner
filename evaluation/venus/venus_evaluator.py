@@ -399,7 +399,7 @@ class VenusEvaluator:
                         original_solution_memory = sum(s['absolute_memory'] for s in original_solutions) / len(original_solutions)
                         original_solution_integral = sum(s['absolute_integral'] for s in original_solutions) / len(original_solutions)
                     else:
-                        original_solution_code = "<No Original Code>"
+                        original_solution_code = "<No original code provided, please generate the code instead>"
                         original_solution_passed = False
                         original_solution_time = 90
                         original_solution_memory = 1000000
@@ -646,7 +646,7 @@ if __name__ == "__main__":
     
     # Iteration Evaluation
     efficiency_instruction = "time"
-    dataset_split_name = "qwen_2_5_3b_time"
+    dataset_split_name = "qwen_2_5_3b"
     for i in tqdm(range(8), desc=f"[{dataset_split_name}] [{efficiency_instruction}] Iteration Evaluation"):
         dataset_split_name = venus_evaluator.venus_afterburner_evaluation_pipeline(afterburner_model_name="Qwen/Qwen2.5-3B", afterburner_split_name="qwen_2_5_3b", original_dataset_split_name=dataset_split_name, efficiency_instruction=efficiency_instruction, force_generation=True, inference_provider="local", data_precentage="100%", data_multiply=4, mode="G")
     
