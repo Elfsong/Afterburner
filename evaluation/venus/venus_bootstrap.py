@@ -86,12 +86,21 @@ def calculate_confidence_interval(bootstrap_list, name=""):
     print(f"Sem: {sem:.4f}")
     print(f"CI: [{ci_lower:.4f}, {ci_upper:.4f}]")
     print(f"Result: {mean*100:.2f}% [{ci_lower*100:.2f}% {ci_upper*100:.2f}%]")
+    
+    return mean, ci_lower, ci_upper
 
 
-calculate_confidence_interval(bootstrap_time_list, "Time")
-calculate_confidence_interval(bootstrap_memory_list, "Memory")
-calculate_confidence_interval(bootstrap_integral_list, "Integral")
-calculate_confidence_interval(bootstrap_pass_list, "Pass")
+mean_time, ci_lower_time, ci_upper_time = calculate_confidence_interval(bootstrap_time_list, "Time")
+mean_memory, ci_lower_memory, ci_upper_memory = calculate_confidence_interval(bootstrap_memory_list, "Memory")
+mean_integral, ci_lower_integral, ci_upper_integral = calculate_confidence_interval(bootstrap_integral_list, "Integral")
+mean_pass, ci_lower_pass, ci_upper_pass = calculate_confidence_interval(bootstrap_pass_list, "Pass")
+
+print("========================================================")
+print(f"[{model_name}] Pass: {mean_pass*100:.2f}% [{ci_lower_pass*100:.2f}% {ci_upper_pass*100:.2f}%]")
+print(f"[{model_name}] Time: {mean_time*100:.2f}% [{ci_lower_time*100:.2f}% {ci_upper_time*100:.2f}%]")
+print(f"[{model_name}] Memory: {mean_memory*100:.2f}% [{ci_lower_memory*100:.2f}% {ci_upper_memory*100:.2f}%]")
+print(f"[{model_name}] Integral: {mean_integral*100:.2f}% [{ci_lower_integral*100:.2f}% {ci_upper_integral*100:.2f}%]")
+
 
 
 

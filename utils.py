@@ -12,6 +12,7 @@ from openai import OpenAI
 from huggingface_hub import InferenceClient
 
 EFFICIENCY_INSTRUCTIONS = {
+    "none": "",
     "time": "time-efficient",
     "memory": "memory-efficient",
     "integral": "both-time-and-memory-efficient",
