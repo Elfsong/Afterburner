@@ -96,10 +96,10 @@ mean_integral, ci_lower_integral, ci_upper_integral = calculate_confidence_inter
 mean_pass, ci_lower_pass, ci_upper_pass = calculate_confidence_interval(bootstrap_pass_list, "Pass")
 
 print("========================================================")
-print(f"[{model_name}] Pass: {mean_pass*100:.2f}% [{ci_lower_pass*100:.2f}% {ci_upper_pass*100:.2f}%]")
-print(f"[{model_name}] Time: {mean_time*100:.2f}% [{ci_lower_time*100:.2f}% {ci_upper_time*100:.2f}%]")
-print(f"[{model_name}] Memory: {mean_memory*100:.2f}% [{ci_lower_memory*100:.2f}% {ci_upper_memory*100:.2f}%]")
-print(f"[{model_name}] Integral: {mean_integral*100:.2f}% [{ci_lower_integral*100:.2f}% {ci_upper_integral*100:.2f}%]")
+print(f"[{model_name}] Pass: {mean_pass*100:.2f} [{ci_lower_pass*100:.2f}, {ci_upper_pass*100:.2f}]")
+print(f"[{model_name}] Time: {mean_time*100:.2f} [{ci_lower_time*100:.2f}, {ci_upper_time*100:.2f}]")
+print(f"[{model_name}] Memory: {mean_memory*100:.2f} [{ci_lower_memory*100:.2f}, {ci_upper_memory*100:.2f}]")
+print(f"[{model_name}] Integral: {mean_integral*100:.2f} [{ci_lower_integral*100:.2f}, {ci_upper_integral*100:.2f}]")
 
 
 

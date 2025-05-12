@@ -10,8 +10,8 @@ from tqdm import tqdm
 from datasets import Dataset, load_dataset
 
 parser = argparse.ArgumentParser(description='Process some parameters for Afterburner generation.')
-parser.add_argument('--original_dataset_split_name', type=str, default="", help='Name of the original dataset split')
-parser.add_argument('--afterburner_split_name', type=str, default="", help='Name of the afterburner split')
+parser.add_argument('--original_dataset_config', type=str, default="", help='Name of the original dataset config')
+parser.add_argument('--afterburner_dataset_config', type=str, default="", help='Name of the afterburner dataset config')
 parser.add_argument('--afterburner_model_name', type=str, default="", help='Name of the afterburner model')
 parser.add_argument('--efficiency_instruction', type=str, default="integral", help='Efficiency instruction to optimize')
 parser.add_argument('--inference_provider', type=str, default="openai", help='Inference provider')
@@ -19,8 +19,8 @@ parser.add_argument('--inference_provider', type=str, default="openai", help='In
 args = parser.parse_args()
 
 data_precentage = "100%"
-original_dataset_split_name = args.original_dataset_split_name
-afterburner_split_name = args.afterburner_split_name
+original_dataset_config = args.original_dataset_config
+afterburner_dataset_config = args.afterburner_dataset_config
 afterburner_model_name = args.afterburner_model_name
 efficiency_instruction = args.efficiency_instruction
 inference_provider = args.inference_provider
@@ -67,14 +67,14 @@ Your solution:
 """
 
 # Generation Config
-generation_config = f"{original_dataset_split_name}_{efficiency_instruction}_{afterburner_split_name}"
+generation_config = f"{original_dataset_config}_{efficiency_instruction}_{afterburner_dataset_config}"
 
 # Meta Dataset
 venus_dataset = load_dataset("Elfsong/Venus_Python", split=f"test[:{data_precentage}]")
 
 # Original Generation Dataset
-if original_dataset_split_name:
-    generation_dataset = load_dataset("Elfsong/Venus_Python_Model_Evaluation", original_dataset_split_name, split="train")
+if original_dataset_config:
+    generation_dataset = load_dataset("Elfsong/Venus_Python_Model_Evaluation", original_dataset_config, split="train")
 else:
     generation_dataset = None
 
@@ -82,7 +82,7 @@ batch_cases = list()
 for instance in tqdm(venus_dataset, desc='Generating Solutions'):
     problem_id = instance['problem_id']
     
-    if original_dataset_split_name:
+    if original_dataset_config:
         # Find matching solutions directly
         original_solutions = [s for s in generation_dataset if s['problem_id'] == int(instance['problem_id'])]
         original_solution_code = original_solutions[0]['solution_code'] if original_solutions else "No solution found"

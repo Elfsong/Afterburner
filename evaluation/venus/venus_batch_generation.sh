@@ -49,6 +49,7 @@
 # python venus_batch_generation.py --original_dataset_split_name gpt_4o --afterburner_split_name o4_mini --afterburner_model_name o4-mini-2025-04-16 --efficiency_instruction memory
 
 
-python venus_batch_generation.py --afterburner_split_name qwen_32b --afterburner_model_name Qwen/QwQ-32B --efficiency_instruction integral
-python venus_batch_generation.py --afterburner_split_name qwen_32b --afterburner_model_name Qwen/QwQ-32B --efficiency_instruction time
-python venus_batch_generation.py --afterburner_split_name qwen_32b --afterburner_model_name Qwen/QwQ-32B --efficiency_instruction memory
+python venus_batch_generation.py --afterburner_dataset_config qwq_32b --afterburner_model_name Qwen/QwQ-32B --efficiency_instruction integral --original_dataset_config qwq_32b
+python venus_batch_generation.py --afterburner_dataset_config qwq_32b --afterburner_model_name Qwen/QwQ-32B --efficiency_instruction time --original_dataset_config qwq_32b
+python venus_batch_generation.py --afterburner_dataset_config qwq_32b --afterburner_model_name Qwen/QwQ-32B --efficiency_instruction memory --original_dataset_config qwq_32b
+
