@@ -1,9 +1,0 @@
-@software{du2025afterburner,
-  author = {Du, Mingzhe and Luu, Anh Tuan and Liu, Yue and Qing, Yuhao and Huang, Dong and He, Xinyi and Liu, Qian and Ma, Zejun and Ng, See-kiong},
-  doi = {https://arxiv.org/abs/2505.23387},
-  month = {06},
-  title = {{Afterburner: Reinforcement Learning Facilitates Self-Improving Code Efficiency Optimization}},
-  url = {https://github.com/Elfsong/Afterburner},
-  version = {3.0},
-  year = {2025}
-}
