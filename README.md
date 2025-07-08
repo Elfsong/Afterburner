@@ -5,7 +5,6 @@
 [![HuggingFace](https://img.shields.io/badge/Hugging%20Face-Elfsong/Venus-ffd21e.svg)](https://huggingface.co/datasets/Elfsong/Venus)
 [![HuggingFace](https://img.shields.io/badge/Hugging%20Face-Elfsong/Monolith-ffd21e.svg)](https://huggingface.co/spaces/Elfsong/Monolith)
 
-
 > **Abstract:** Large Language Models (LLMs) generate functionally correct solutions but often fall short in code efficiency, a critical bottleneck for real-world deployment. In this paper, we introduce a novel test-time iterative optimization framework to address this, employing a closed-loop system where LLMs iteratively refine code based on empirical performance feedback from an execution sandbox. We explore three training strategies: Supervised Fine-Tuning (SFT), Direct Preference Optimization (DPO), and Group Relative Policy Optimization (GRPO). Experiments on our Venus dataset and the APPS benchmark show that SFT and DPO rapidly saturate in efficiency gains. In contrast, GRPO, using reinforcement learning (RL) with execution feedback, continuously optimizes code performance, significantly boosting both pass@1 (from 47% to 62%) and the likelihood of outperforming human submissions in efficiency (from 31% to 45%). Our work demonstrates effective test-time code efficiency improvement and critically reveals the power of RL in teaching LLMs to truly self-improve code efficiency.
 
 While current LLMs excel at generating code that works, can we trust that generated code in real-world applications? Often, the answer is **NO**. 
@@ -16,6 +15,10 @@ To tackle this, we introduce **Afterburner**, an iterative framework that levera
 - 🔮 While SFT & DPO methods plateau, our RL approach shows continuous improvement.
 - 📈 Pass@1 boosted from 47% to 62%.
 - 🏆 Outperforms human code efficiency likelihood jumps from 31% to 45%.
+
+<p align="center">
+  <img width="100%" alt="image" src="https://github.com/user-attachments/assets/ce98c5d6-5a94-4094-a089-37ab58a9f854" />
+</p>
 
 ---
 ## Step 1. Data (Venus)
@@ -37,10 +40,10 @@ It measures three key metrics for each task from Venus: **1) Running Time**, **2
 </p>
 
 - **Demo:** https://monolith.cool/ (Too costly, [email me](mailto:mingzhe@nus.edu.sg) if you need it.)
-- **Code:** https://github.com/Elfsong/Monolith
+- **Code:** https://github.com/Elfsong/Monolith (We recommend you to deploy your own Monolith)
 
 ## Step 3. Algorithm (Afterburner)
-
+We explore
 <p align="center">
   <img width="533" alt="image" src="https://github.com/user-attachments/assets/eff9b2da-e0cd-4882-90d2-9246011a3bff" />
 </p>
