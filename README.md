@@ -36,7 +36,7 @@ It measures three key metrics for each task from Venus: **1) Running Time**, **2
   <img width="397" alt="image" src="https://github.com/user-attachments/assets/3f7b518f-301c-4737-bee2-b1abffa27e0c" />
 </p>
 
-- **Demo:** https://monolith.cool/ (Too costly, email me if you need it.)
+- **Demo:** https://monolith.cool/ (Too costly, [email me](mailto:mingzhe@nus.edu.sg) if you need it.)
 - **Code:** https://github.com/Elfsong/Monolith
 
 ## Step 3. Algorithm (Afterburner)
