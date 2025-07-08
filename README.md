@@ -16,6 +16,10 @@ To tackle this, we introduce **Afterburner**, an iterative framework that levera
 - 📈 Pass@1 boosted from 47% to 62%.
 - 🏆 Outperforms human code efficiency likelihood jumps from 31% to 45%.
 
+<p align="center">
+  <img width="729" alt="image" src="https://github.com/user-attachments/assets/96c7142a-723e-41fe-8881-080f5a948fd4" />
+</p>
+
 ## Overview
 <p align="center">
   <img width="714" alt="image" src="https://github.com/user-attachments/assets/211a255f-00ab-428d-ac3c-bccb1926ace5" />
