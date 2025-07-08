@@ -53,13 +53,18 @@ It measures three key metrics for each task from Venus: **1) Running Time**, **2
 ## Step 3. Algorithm (Afterburner)
 We explore three optimization strategies within IOF. Namely, **Supervised Fine-Tuning (SFT)**, **Direct Preference Optimization (DPO)**, and **Group Relative Policy Optimization (GRPO)**.
 
+<p align="center">
+  <img width="533" alt="image" src="https://github.com/user-attachments/assets/eff9b2da-e0cd-4882-90d2-9246011a3bff" />
+</p>
+
 **SFT** tends to capture superficial patterns from mimicking examples. **DPO** internalizes static preferences based on pairwise comparisons from
 offline data. In contrast, through online interaction with execution feedback, **GRPO** cultivates an adaptive proficiency in code efficiency optimization, which enables it to explore and exploit the
 solution space effectively within an iterative, test-time optimization process.
 
 <p align="center">
-  <img width="533" alt="image" src="https://github.com/user-attachments/assets/eff9b2da-e0cd-4882-90d2-9246011a3bff" />
+  <img width="1012" alt="image" src="https://github.com/user-attachments/assets/c2976b1a-25d1-48b2-9e75-7abb5540eb12" />
 </p>
+
 
 ### Recipe for SFT & DPO
 ```json
