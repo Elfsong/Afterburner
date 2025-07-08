@@ -18,10 +18,17 @@ Large Language Models (LLMs) generate functionally correct solutions but often f
 📈 The results show that while SFT and DPO models provide initial efficiency gains, they quickly plateau. In contrast, the GRPO model, powered by reinforcement learning, demonstrates continuous self-improvement. This approach significantly boosted the pass rate (PASS@1) from 47% to 62% and increased the likelihood of generating code more efficient than human submissions from 31% to 45%. The study concludes that leveraging reinforcement learning with direct execution feedback is a highly effective strategy for teaching LLMs to generate genuinely high-performance code.
 
 ## Step 1. Data (Venus)
+Link: https://github.com/Elfsong/Venus
 
 ## Step 2. Environment (Monolith)
+Link: https://github.com/Elfsong/Monolith
 
 ## Step 3. Algorithm (Afterburner)
+SFT & DPO: https://github.com/hiyouga/LLaMA-Factory
+GRPO: https://github.com/volcengine/verl
+
+## Step 4. Evaluation (Litmus)
+Link: https://github.com/Elfsong/Litmus
 
 ## Citation
 ```
