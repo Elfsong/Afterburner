@@ -19,10 +19,20 @@ To tackle this, we introduce **Afterburner**, an iterative framework that levera
 
 ---
 ## Step 1. Data (Venus)
-Link: https://github.com/Elfsong/Venus
+**Venus** is the dataset used to train **Afterburner**. It is an extension of the original Mercury dataset and currently includes 6 languages: _Python3, C++, Javascript, Go, Rust, and Java_.
+
+<p align="center">
+  <img width="550" alt="image" src="https://github.com/user-attachments/assets/9b9c1471-703f-4b5c-b4bf-2ec70e5497cf" />
+</p>
+
+- **HF Dataset:** https://huggingface.co/datasets/Elfsong/Venus
+- **Code:** https://github.com/Elfsong/Venus
 
 ## Step 2. Environment (Monolith)
-Link: https://github.com/Elfsong/Monolith
+**Monolith** is the code execution environment for **Afterburner**. It support parallel code execution for RL rollout (Isolated container with 100% CPU affinity) and high resolution performance measurement (10 kHz).
+
+- **Demo:** https://monolith.cool/ (Too costly, email me if you need it.)
+- **Code:** https://github.com/Elfsong/Monolith
 
 ## Step 3. Algorithm (Afterburner)
 SFT & DPO: https://github.com/hiyouga/LLaMA-Factory
