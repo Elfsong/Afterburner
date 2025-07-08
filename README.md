@@ -13,9 +13,9 @@ Since current research has largely focused on **functional correctness**, leavin
 
 To tackle this, we introduce **Afterburner**, an iterative framework that leverages reinforcement learning (RL) to instruct LLMs how to generate code that is not only correct but also efficient. Afterburner creates a self-improving loop, continually refining code for better performance:
 
-- While SFT & DPO methods plateau, our RL approach shows continuous improvement 🔮
-- Pass@1 boosted from 47% to 62% 📈 
-- Outperforms human code efficiency likelihood jumps from 31% to 45% 🏆
+- 🔮 While SFT & DPO methods plateau, our RL approach shows continuous improvement.
+- 📈 Pass@1 boosted from 47% to 62%.
+- 🏆 Outperforms human code efficiency likelihood jumps from 31% to 45%.
 
 ---
 ## Step 1. Data (Venus)
