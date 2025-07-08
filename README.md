@@ -106,7 +106,9 @@ See https://github.com/Elfsong/Afterburner/blob/main/grpo/afterburner_train.sh
 - **Model:** https://huggingface.co/Elfsong/Afterburner_3B_100
 
 ## Step 4. Evaluation (Litmus)
-Despite achieving high functional correctness (PASS@1), vanilla models generate code with strikingly inferior computational efficiency compared to human solutions:
+Despite achieving high functional correctness (PASS@1), vanilla models generate code with strikingly inferior computational efficiency compared to human solutions.
+While stronger (bigger) models exhibit marginally better code efficiency, this is insufficient to overcome the fundamental gap. 
+This pervasive efficiency deficit in LLM-generated code clearly motivates the development of dedicated optimization frameworks, such as Afterburner, to enhance code generation in real-world applications.
 
 <p align="center">
   <img width="713" alt="image" src="https://github.com/user-attachments/assets/a3d01d4f-b446-4ff5-b10a-3c6fc3dbed83" />
