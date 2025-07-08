@@ -1,4 +1,4 @@
-<img width="714" alt="image" src="https://github.com/user-attachments/assets/35dfa512-cbc4-42a7-8743-f8278f18847e" /># 🚀 Afterburner: Reinforcement Learning Facilitates Self-Improving Code Efficiency Optimization
+# 🚀 Afterburner: Reinforcement Learning Facilitates Self-Improving Code Efficiency Optimization
 
 [![arXiv](https://img.shields.io/badge/arXiv-2402.07844-b31b1b.svg)](https://arxiv.org/abs/2505.23387)
 [![Monolith](https://img.shields.io/pypi/v/monolith-lib)](https://pypi.org/project/monolith-lib/)
