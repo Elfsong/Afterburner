@@ -25,7 +25,7 @@ To tackle this, we introduce **Afterburner**, an iterative framework that levera
 
 In this work, we introduce a novel iterative optimization framework (IOF) designed to enhance LLM-generated code efficiency through a closed-loop system of generation and evaluation, driven by **Monolith** and **Afterburner** trained on **Venus**.
 
-## Step 1. Dataset (Venus)
+## (1/4) Dataset (Venus)
 **Venus** is the dataset used to train **Afterburner**. It is an extension of the original Mercury dataset and currently includes 6 languages: _Python3, C++, Javascript, Go, Rust, and Java_.
 
 <p align="center">
@@ -35,7 +35,7 @@ In this work, we introduce a novel iterative optimization framework (IOF) design
 - **HF Dataset:** https://huggingface.co/datasets/Elfsong/Venus
 - **Code:** https://github.com/Elfsong/Venus
 
-## Step 2. Environment (Monolith)
+## (2/4) Environment (Monolith)
 **Monolith** is the code execution environment for **Afterburner**. It support parallel code execution for RL rollout (Isolated container with 100% CPU affinity) and high resolution performance measurement (10 kHz).
 It measures three key metrics for each task from Venus: **1) Running Time**, **2) Memory Usage**, and **3) Integral Score** (The integral area of ​​running time versus memory usage).
 
@@ -43,10 +43,10 @@ It measures three key metrics for each task from Venus: **1) Running Time**, **2
   <img width="397" alt="image" src="https://github.com/user-attachments/assets/3f7b518f-301c-4737-bee2-b1abffa27e0c" />
 </p>
 
-- **Demo:** https://monolith.cool/ _(Too costly, [email me](mailto:mingzhe@nus.edu.sg) if you need it.)_
+- **Demo:** https://monolith.cool/ _(Too costly, email me if you need it.)_
 - **Code:** https://github.com/Elfsong/Monolith _(We recommend you to deploy your own Monolith.)_
 
-## Step 3. Algorithm (Afterburner)
+## (3/4) Algorithm (Afterburner)
 We explore three optimization strategies within IOF. Namely, **Supervised Fine-Tuning (SFT)**, **Direct Preference Optimization (DPO)**, and **Group Relative Policy Optimization (GRPO)**.
 
 **SFT** tends to capture superficial patterns from mimicking examples. **DPO** internalizes static preferences based on pairwise comparisons from
@@ -61,7 +61,7 @@ solution space effectively within an iterative, test-time optimization process.
 - **GRPO:** https://github.com/volcengine/verl
 - **Model:** https://huggingface.co/Elfsong/Afterburner_3B_100
 
-## Step 4. Evaluation (Litmus)
+## (4/4) Evaluation (Litmus)
 Despite achieving high functional correctness (PASS@1), vanilla models generate code with strikingly inferior computational efficiency compared to human solutions:
 
 <p align="center">
