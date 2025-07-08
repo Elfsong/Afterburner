@@ -86,10 +86,11 @@ solution space effectively within an iterative, test-time optimization process.
 See https://github.com/Elfsong/Afterburner/blob/main/grpo/afterburner_dataset.py
 
 # Step 2. Reward Function
-See 
+See https://github.com/Elfsong/Afterburner/blob/main/grpo/afterburner_reward_function.py
 
+# Step 3. Training
+See https://github.com/Elfsong/Afterburner/blob/main/grpo/afterburner_train.sh
 ```
-
 
 - **SFT & DPO:** https://github.com/hiyouga/LLaMA-Factory
 - **GRPO:** https://github.com/volcengine/verl
