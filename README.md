@@ -82,7 +82,11 @@ solution space effectively within an iterative, test-time optimization process.
 
 ### Recipe for GRPO
 ```shell
-# Data Preperation
+# Step 1. Data Preperation
+See https://github.com/Elfsong/Afterburner/blob/main/grpo/afterburner_dataset.py
+
+# Step 2. Reward Function
+See 
 
 ```
 
