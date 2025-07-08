@@ -49,7 +49,13 @@ It measures three key metrics for each task from Venus: **1) Running Time**, **2
 - **GRPO:** https://github.com/volcengine/verl
 
 ## Step 4. Evaluation (Litmus)
-Link: https://github.com/Elfsong/Litmus
+Despite achieving high functional correctness (PASS@1), vanilla models generate code with strikingly inferior computational efficiency compared to human solutions
+
+<p align="center">
+  <img width="713" alt="image" src="https://github.com/user-attachments/assets/a3d01d4f-b446-4ff5-b10a-3c6fc3dbed83" />
+</p>
+
+- **Code:** https://github.com/Elfsong/Litmus
 
 ## Citation
 ```
