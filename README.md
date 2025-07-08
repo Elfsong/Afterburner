@@ -35,6 +35,10 @@ To tackle this, we introduce **Afterburner**, an iterative framework that levera
 - **Code:** https://github.com/Elfsong/Monolith
 
 ## Step 3. Algorithm (Afterburner)
+<p align="center">
+  <img width="533" alt="image" src="https://github.com/user-attachments/assets/eff9b2da-e0cd-4882-90d2-9246011a3bff" />
+</p>
+
 SFT & DPO: https://github.com/hiyouga/LLaMA-Factory
 GRPO: https://github.com/volcengine/verl
 
