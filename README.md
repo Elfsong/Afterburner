@@ -1,4 +1,4 @@
-# 🚀 Afterburner: Reinforcement Learning Facilitates Self-Improving Code Efficiency Optimization
+<img width="714" alt="image" src="https://github.com/user-attachments/assets/35dfa512-cbc4-42a7-8743-f8278f18847e" /># 🚀 Afterburner: Reinforcement Learning Facilitates Self-Improving Code Efficiency Optimization
 
 [![arXiv](https://img.shields.io/badge/arXiv-2402.07844-b31b1b.svg)](https://arxiv.org/abs/2505.23387)
 [![Monolith](https://img.shields.io/pypi/v/monolith-lib)](https://pypi.org/project/monolith-lib/)
@@ -16,12 +16,16 @@ To tackle this, we introduce **Afterburner**, an iterative framework that levera
 - 📈 Pass@1 boosted from 47% to 62%.
 - 🏆 Outperforms human code efficiency likelihood jumps from 31% to 45%.
 
+## Overview
 <p align="center">
-  <img width="100%" alt="image" src="https://github.com/user-attachments/assets/ce98c5d6-5a94-4094-a089-37ab58a9f854" />
+  <img width="714" alt="image" src="https://github.com/user-attachments/assets/211a255f-00ab-428d-ac3c-bccb1926ace5" />
 </p>
 
----
-## Step 1. Data (Venus)
+> In RL, there are three key components: **algorithm**, **environment**, and **priors**. For a long time, RL researchers focused mostly on the _**algorithm**_ (e.g. REINFORCE, DQN, TD-learning, actor-critic, PPO, TRPO…) – the intellectual core of how an agent learns – while treating the environment and priors as fixed or minimal. For example, Sutton and Barto’s classical textbook is all about algorithms and almost nothing about _**environments or priors**_. However, in the era of deep RL, it became clear that environments matter a lot empirically: an algorithm’s performance is often highly specific to the environment it was developed and tested in. -- [The Second Half](https://ysymyth.github.io/The-Second-Half/)
+
+In this work, we introduce a novel iterative optimization framework (IOF) designed to enhance LLM-generated code efficiency through a closed-loop system of generation and evaluation, driven by **Monolith** and **Afterburner** trained on **Venus**.
+
+## Step 1. Dataset (Venus)
 **Venus** is the dataset used to train **Afterburner**. It is an extension of the original Mercury dataset and currently includes 6 languages: _Python3, C++, Javascript, Go, Rust, and Java_.
 
 <p align="center">
@@ -40,7 +44,7 @@ It measures three key metrics for each task from Venus: **1) Running Time**, **2
 </p>
 
 - **Demo:** https://monolith.cool/ (Too costly, [email me](mailto:mingzhe@nus.edu.sg) if you need it.)
-- **Code:** https://github.com/Elfsong/Monolith (We recommend you to deploy your own Monolith)
+- **Code:** https://github.com/Elfsong/Monolith (We recommend you to deploy your own Monolith.)
 
 ## Step 3. Algorithm (Afterburner)
 We explore
