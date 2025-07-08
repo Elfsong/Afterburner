@@ -59,9 +59,10 @@ solution space effectively within an iterative, test-time optimization process.
 
 - **SFT & DPO:** https://github.com/hiyouga/LLaMA-Factory
 - **GRPO:** https://github.com/volcengine/verl
+- **Model:** https://huggingface.co/Elfsong/Afterburner_3B_100
 
 ## Step 4. Evaluation (Litmus)
-Despite achieving high functional correctness (PASS@1), vanilla models generate code with strikingly inferior computational efficiency compared to human solutions
+Despite achieving high functional correctness (PASS@1), vanilla models generate code with strikingly inferior computational efficiency compared to human solutions:
 
 <p align="center">
   <img width="713" alt="image" src="https://github.com/user-attachments/assets/a3d01d4f-b446-4ff5-b10a-3c6fc3dbed83" />
