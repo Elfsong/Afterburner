@@ -30,17 +30,23 @@ To tackle this, we introduce **Afterburner**, an iterative framework that levera
 
 ## Step 2. Environment (Monolith)
 **Monolith** is the code execution environment for **Afterburner**. It support parallel code execution for RL rollout (Isolated container with 100% CPU affinity) and high resolution performance measurement (10 kHz).
+It measures three key metrics for each task from Venus: **1) Running Time**, **2) Memory Usage**, and **3) Integral Score** (The integral area of ​​running time versus memory usage).
+
+<p align="center">
+  <img width="397" alt="image" src="https://github.com/user-attachments/assets/3f7b518f-301c-4737-bee2-b1abffa27e0c" />
+</p>
 
 - **Demo:** https://monolith.cool/ (Too costly, email me if you need it.)
 - **Code:** https://github.com/Elfsong/Monolith
 
 ## Step 3. Algorithm (Afterburner)
+
 <p align="center">
   <img width="533" alt="image" src="https://github.com/user-attachments/assets/eff9b2da-e0cd-4882-90d2-9246011a3bff" />
 </p>
 
-SFT & DPO: https://github.com/hiyouga/LLaMA-Factory
-GRPO: https://github.com/volcengine/verl
+- **SFT & DPO:** https://github.com/hiyouga/LLaMA-Factory
+- **GRPO:** https://github.com/volcengine/verl
 
 ## Step 4. Evaluation (Litmus)
 Link: https://github.com/Elfsong/Litmus
