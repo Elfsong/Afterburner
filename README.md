@@ -81,6 +81,10 @@ solution space effectively within an iterative, test-time optimization process.
 ```
 
 ### Recipe for GRPO
+```shell
+# Data Preperation
+
+```
 
 
 - **SFT & DPO:** https://github.com/hiyouga/LLaMA-Factory
