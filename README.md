@@ -1,6 +1,6 @@
 # 🚀 Afterburner: Reinforcement Learning Facilitates Self-Improving Code Efficiency Optimization
 
-[![arXiv](https://img.shields.io/badge/arXiv-2402.07844-b31b1b.svg)](https://arxiv.org/abs/2505.23387)
+[![arXiv](https://img.shields.io/badge/arXiv-2505.23387-b31b1b.svg)](https://arxiv.org/abs/2505.23387)
 [![Monolith](https://img.shields.io/pypi/v/monolith-lib)](https://pypi.org/project/monolith-lib/)
 [![HuggingFace](https://img.shields.io/badge/Hugging%20Face-Elfsong/Venus-ffd21e.svg)](https://huggingface.co/datasets/Elfsong/Venus)
 [![HuggingFace](https://img.shields.io/badge/Hugging%20Face-Elfsong/Monolith-ffd21e.svg)](https://huggingface.co/spaces/Elfsong/Monolith)
