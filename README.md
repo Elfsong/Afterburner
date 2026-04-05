@@ -36,8 +36,8 @@ In this work, we introduce a novel iterative optimization framework (IOF) design
   <img width="550" alt="image" src="https://github.com/user-attachments/assets/9b9c1471-703f-4b5c-b4bf-2ec70e5497cf" />
 </p>
 
-- **Multilingual Dataset:** https://huggingface.co/datasets/Elfsong/Venus
-- **Language Agnostic Test Case Dataset:** https://huggingface.co/datasets/Elfsong/Venus_General_Test
+- **Multilingual Dataset (solutions):** https://huggingface.co/datasets/Elfsong/Venus
+- **Language Agnostic Dataset (test cases):** https://huggingface.co/datasets/Elfsong/Venus_General_Test
 - **Code:** https://github.com/Elfsong/Venus
 
 ## Step 2. Environment (Monolith)
